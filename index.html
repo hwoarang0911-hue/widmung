@@ -18,6 +18,8 @@
   --mute:#87867F;
   --line:rgba(20,20,20,.13);
   --hair:rgba(20,20,20,.07);
+  --henle:#00539F;
+  --henle-soft:rgba(0,83,159,.10);
   --glass:rgba(255,255,255,.60);
   --glass-2:rgba(255,255,255,.74);
   --sans:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',system-ui,sans-serif;
@@ -108,6 +110,10 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
 .badge{font-style:normal;font-size:9.5px;letter-spacing:.08em;color:var(--ink);
   border:1px solid var(--line);border-radius:3px;padding:2px 6px}
 .item.lit{background:rgba(20,20,20,.05);border-radius:12px;padding:11px 13px;margin:0 -13px}
+.item.fame .what{color:var(--henle)}
+.item.fame .what::before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;
+  background:var(--henle);vertical-align:.28em;margin-right:7px}
+.item.fame.lit{background:var(--henle-soft)}
 .item .links{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap}
 .item a{font-size:11.5px;text-decoration:none;color:var(--ink-2);border:1px solid var(--line);
   border-radius:14px;padding:4px 12px;transition:background .2s,color .2s,border-color .2s}
@@ -191,6 +197,8 @@ const KIND = {
   memorial:  {ko:'추모', c:[20,20,20], dash:[0.5,3.5]},
   homage:    {ko:'오마주',c:[20,20,20], dash:[6,4]}
 };
+const HENLE = [0,83,159];                     // 중요 곡 전용 키 컬러
+const henle = a => 'rgba(0,83,159,'+a+')';
 const workById = new Map(D.works.map(w=>[w.id,w]));
 /* ── 초상을 불러올 음악가(저작권이 만료된 초상·사진) ── */
 const PORTRAIT_IDS = [0,5,9,10,13,16,22,23,24,28,29,33,35,37,41,43,44,47,50,51,52,55,57,58,61,62,66,67,70,74,76,79,86,87,91,98,99,102,107,109,114,115,118,124,126,128,133,135,136,138,140,141,148,149,151,156,157,162,167,168,170,172,174,176,183];
@@ -443,6 +451,22 @@ function toWorld(sx,sy){ return [ (sx-viewCX())/cam.k + cam.x, (sy-viewCY())/cam
 function flyTo(x,y,k){
   cam.mode='spring'; cam.tx=x; cam.ty=y; cam.tk=clampK(k);
 }
+/* 노드를 화면 한가운데 두었을 때 둘레의 헌정자들이 들어오는 배율.
+   멀리 떨어진 한두 명 때문에 화면이 과하게 멀어지지 않도록
+   거리의 최댓값이 아니라 상위 15% 지점을 기준으로 삼는다. */
+function q85(v, floor){
+  if(!v.length) return floor;
+  v.sort((a,b)=>a-b);
+  return Math.max(floor, v[Math.min(v.length-1, Math.floor(v.length*0.85))]);
+}
+function fitK(n){
+  const dx=[], dy=[];
+  for(const m of n.nb){ dx.push(Math.abs(m.x-n.x)+78); dy.push(Math.abs(m.y-n.y)+58); }
+  const ex = q85(dx,120), ey = q85(dy,90);
+  const availW = Math.max(220, W - 72);
+  const availH = Math.max(180, H - openH() - 118);
+  return clampK(Math.min(availW/(2*ex), availH/(2*ey), 2.4));
+}
 function clampK(k){ return Math.max(K_MIN, Math.min(K_MAX,k)); }
 function fitAll(){
   const cx=(bounds.minX+bounds.maxX)/2, cy=(bounds.minY+bounds.maxY)/2;
@@ -485,6 +509,7 @@ cv.addEventListener('pointermove', e=>{
     k = rubber(k);
     cam.k = k; cam.tk = clampK(k);
     const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+    follow = false;
     cam.x = pinch.w[0] - (mx-viewCX())/cam.k;
     cam.y = pinch.w[1] - (my-viewCY())/cam.k;
     return;
@@ -502,6 +527,7 @@ cv.addEventListener('pointermove', e=>{
     drag.node.x += dx/cam.k; drag.node.y += dy/cam.k;
     alpha = Math.max(alpha,.3);
   }else{
+    follow = false;
     cam.x -= dx/cam.k; cam.y -= dy/cam.k;
     cam.vx = -dx/cam.k*60/16; cam.vy = -dy/cam.k*60/16;
   }
@@ -527,7 +553,7 @@ cv.addEventListener('pointerup', release);
 cv.addEventListener('pointercancel', release);
 
 cv.addEventListener('wheel', e=>{
-  e.preventDefault(); hideHint();
+  e.preventDefault(); hideHint(); follow=false;
   anchor = toWorld(e.clientX,e.clientY); anchorT=performance.now();
   anchor.push(e.clientX,e.clientY);
   const f = Math.exp(-e.deltaY*0.0016);
@@ -569,6 +595,7 @@ function pick(sx,sy){
 const sheet=document.getElementById('sheet');
 const tools=document.querySelector('.tools');
 let sheetH = 0;
+let follow = false;                       // 선택한 노드를 카메라가 따라가는 중인가
 function stops(){ return [Math.round(H*0.32), Math.round(H*0.46), Math.round(H*0.88)]; }
 function setSheetH(px, animate){
   const st = stops();
@@ -612,6 +639,7 @@ grab.addEventListener('pointercancel', endGrab);
 function select(n, focusRel){
   sel = n;
   if(!n){
+    follow = false;
     sheet.classList.add('hide');
     document.documentElement.style.setProperty('--sheetH','0px');
     tools.classList.remove('dim');
@@ -624,8 +652,8 @@ function select(n, focusRel){
   else setSheetH(sheetH, false);
   hideHint();
   resize();
-  const tk = Math.max(cam.k, 1.15);
-  flyTo(n.x, n.y, tk);
+  follow = true;
+  flyTo(n.x, n.y, fitK(n));
   alpha = Math.max(alpha,.16);
 }
 document.getElementById('sClose').onclick = ()=> select(null);
@@ -738,8 +766,8 @@ document.addEventListener('pointerdown', e=>{
 }, true);
 
 /* ── 버튼 ── */
-document.getElementById('zin').onclick = ()=>{ cam.tk=clampK(cam.tk*1.55); cam.mode = cam.mode==='spring'?'spring':'free'; };
-document.getElementById('zout').onclick= ()=>{ cam.tk=clampK(cam.tk/1.55); };
+document.getElementById('zin').onclick = ()=>{ follow=false; cam.tk=clampK(cam.tk*1.55); cam.mode = cam.mode==='spring'?'spring':'free'; };
+document.getElementById('zout').onclick= ()=>{ follow=false; cam.tk=clampK(cam.tk/1.55); };
 document.getElementById('reset').onclick=()=>{ select(null); setTimeout(()=>{measure();fitAll();},20); };
 document.getElementById('retry').onclick=()=>{ hideToast(); IMG.clear(); portraitOK=0; loadPortraits(); };
 var hintEl=document.getElementById('hint');
@@ -758,12 +786,18 @@ function frame(now){
   if(a>0.001){ tick(a); alpha = Math.max(0.045, alpha*0.988); }
   if(Math.random()<0.02) measure();
 
+  // 선택한 노드가 흔들려도 화면 중앙에 머물게 목표를 계속 고쳐 잡는다
+  if(follow && sel && !pinch && !(drag && !drag.node)){
+    cam.mode='spring';
+    cam.tx = sel.x; cam.ty = sel.y;
+    cam.tk += (fitK(sel) - cam.tk) * Math.min(1, dt*1.6);
+  }
   // 카메라 스프링
   if(cam.mode==='spring'){
     sp(cam,'x','tx','vx',dt,120,17);
     sp(cam,'y','ty','vy',dt,120,17);
     sp(cam,'k','tk','vk',dt,150,19);
-    if(Math.abs(cam.x-cam.tx)<.4 && Math.abs(cam.y-cam.ty)<.4 && Math.abs(cam.k-cam.tk)<.002) cam.mode='free';
+    if(!follow && Math.abs(cam.x-cam.tx)<.4 && Math.abs(cam.y-cam.ty)<.4 && Math.abs(cam.k-cam.tk)<.002) cam.mode='free';
   }else{
     if(!pinch){
       sp(cam,'k','tk','vk',dt,150,19);           // 확대는 늘 탄성
@@ -793,16 +827,48 @@ function sp(o,c,t,v,dt,k,d){
   o[v] += acc*dt; o[c] += o[v]*dt;
 }
 
+/* ── 앰비언트 배경 ──
+   커다란 색 덩어리 네 개가 아주 느리게 흘러다닌다. 1/5 해상도 오프스크린에
+   그린 뒤 늘려 붙여 비용을 줄이고, 확대 보간이 곧 블러 역할을 한다. */
+const bg = document.createElement('canvas');
+const bgx = bg.getContext('2d');
+const WASH = [                      // 자리, 크기, 색, 진하기, 흐르는 속도 둘
+  [0.30,0.27,0.62, HENLE,        0.165, 0.074, 0.051],
+  [0.74,0.36,0.56, [198,160,104],0.150, 0.058, 0.071],
+  [0.54,0.80,0.68, [104,140,128],0.130, 0.046, 0.063],
+  [0.13,0.72,0.48, [184,132,146],0.120, 0.066, 0.041]
+];
+function ambient(now){
+  const bw = Math.max(2, Math.round(W/5)), bh = Math.max(2, Math.round(H/5));
+  if(bg.width!==bw || bg.height!==bh){ bg.width=bw; bg.height=bh; }
+  const t = RM ? 0 : now/1000;
+  bgx.fillStyle = '#F4F4F1'; bgx.fillRect(0,0,bw,bh);
+  const M = Math.max(bw,bh);
+  for(const [px,py,pr,c,a,s1,s2] of WASH){
+    const x = (px + Math.sin(t*s1)*0.17 + Math.cos(t*s2*0.7)*0.09) * bw;
+    const y = (py + Math.cos(t*s2)*0.15 + Math.sin(t*s1*0.8)*0.07) * bh;
+    const r = Math.max(1, pr*M*(1 + Math.sin(t*s1*1.3)*0.18));
+    const g = bgx.createRadialGradient(x,y,0,x,y,r);
+    g.addColorStop(0,  'rgba('+c+','+a+')');
+    g.addColorStop(.55,'rgba('+c+','+(a*0.42)+')');
+    g.addColorStop(1,  'rgba('+c+',0)');
+    bgx.fillStyle=g; bgx.fillRect(0,0,bw,bh);
+  }
+  // 시선이 머무는 자리를 하얗게 눌러 글자가 뜨게 한다
+  const vx = viewCX()/W*bw, vy = viewCY()/H*bh;
+  const v = bgx.createRadialGradient(vx, vy*0.92, 0, vx, vy, M*0.72);
+  v.addColorStop(0,'rgba(255,255,255,.58)');
+  v.addColorStop(.5,'rgba(255,255,255,.24)');
+  v.addColorStop(1,'rgba(255,255,255,0)');
+  bgx.fillStyle=v; bgx.fillRect(0,0,bw,bh);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(bg, 0,0, W,H);
+}
+
 /* ── 그리기 ── */
 function draw(now){
   ctx.clearRect(0,0,W,H);
-  const g = ctx.createRadialGradient(viewCX(),viewCY()*0.8,0, viewCX(),viewCY(), Math.max(W,H)*0.86);
-  g.addColorStop(0,'#FFFFFF'); g.addColorStop(.45,'#F8F8F6'); g.addColorStop(1,'#EDEDE9');
-  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-  const g2 = ctx.createLinearGradient(0,0,W,H);
-  g2.addColorStop(0,'rgba(224,228,236,.55)'); g2.addColorStop(.5,'rgba(255,255,255,0)');
-  g2.addColorStop(1,'rgba(232,226,216,.5)');
-  ctx.fillStyle=g2; ctx.fillRect(0,0,W,H);
+  ambient(now);
 
   const near = new Set();
   if(sel){ near.add(sel); sel.nb.forEach(n=>near.add(n)); }
@@ -846,14 +912,54 @@ function draw(now){
   }
   for(const L of beads){
     const lit = sel && (L.s===sel||L.t===sel);
+    const hot = lit || L===hovBead;
     const rr = (lit?4.6:3.2) * (0.94+0.06*pulse);
     ctx.beginPath(); ctx.arc(L._bx,L._by, rr, 0, 7);
-    ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.fill();
+    ctx.fillStyle = hot ? henle(.92) : henle(.34); ctx.fill();
     ctx.lineWidth = L===hovBead ? 2.2 : 1.3;
-    ctx.strokeStyle = 'rgba(20,20,20,'+(lit||L===hovBead?0.9:0.42)+')';
+    ctx.strokeStyle = henle(hot?0.95:0.55);
     ctx.stroke();
     if(L===hovBead){ ctx.beginPath(); ctx.arc(L._bx,L._by, rr-2.4, 0, 7);
-      ctx.fillStyle='rgba(20,20,20,.9)'; ctx.fill(); }
+      ctx.fillStyle='rgba(255,255,255,.95)'; ctx.fill(); }
+  }
+  /* 충분히 확대했을 때만 원문 곡명을 붙인다.
+     고른 곡·가리킨 곡을 먼저 놓고, 이미 놓인 글자와 겹치는 것은 건너뛴다. */
+  if(K > 1.45 || (sel && K > 0.85)){
+    const cand = [];
+    for(const L of beads){
+      const lit = sel && (L.s===sel||L.t===sel);
+      if(sel && !lit && K <= 1.45) continue;
+      if(!L.work.title) continue;
+      cand.push([L, lit, (L===hovBead?2:0) + (lit?1:0)]);
+    }
+    cand.sort((a,b)=>b[2]-a[2]);
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+    const fs = Math.max(10, Math.min(14, 8.4*Math.min(K,2.1)));
+    const put = [];
+    if(sel){                                   // 고른 음악가의 얼굴은 글자로 덮지 않는다
+      const [sx,sy] = toScreen(sel);
+      const sr = Math.max(26, sel.r*K) + 14;
+      put.push([sx, sy, sr, sr]);
+    }
+    for(const [L, lit, pri] of cand){
+      if(put.length >= 16) break;
+      ctx.font = (lit?'700 ':'400 ')+fs+'px "Nanum Myeongjo","Apple SD Gothic Neo",serif';
+      const t = L.work.title;
+      const hw = ctx.measureText(t).width/2 + 4, hh = fs*0.72;
+      const cx = L._bx, cy = L._by - (lit?9:7.5) - fs*0.35;
+      if(cx+hw<0 || cx-hw>W || cy+hh<0 || cy-hh>H) continue;
+      let clash = false;
+      for(const r of put){
+        if(Math.abs(cx-r[0]) < hw+r[2] && Math.abs(cy-r[1]) < hh+r[3]){ clash=true; break; }
+      }
+      if(clash) continue;
+      put.push([cx,cy,hw,hh]);
+      const ty = L._by - (lit?9:7.5);
+      ctx.lineWidth = 3.4; ctx.strokeStyle = 'rgba(250,250,248,.94)';
+      ctx.strokeText(t, L._bx, ty);
+      ctx.fillStyle = henle(pri ? 0.96 : 0.62);
+      ctx.fillText(t, L._bx, ty);
+    }
   }
 
   // 점
@@ -937,6 +1043,7 @@ function draw(now){
 addEventListener('resize', ()=>{ resize(); });
 resize();
 function openingView(){
+  follow = false;
   measure();
   const k = Math.max(0.9, Math.min(1.5, fitScale()*1.75));
   cam.x = hub.x; cam.y = hub.y;
