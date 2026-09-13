@@ -29,90 +29,76 @@ body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:
 canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
 
 /* ───────── 머리말 ───────── */
-.top{position:fixed;top:0;left:0;right:0;padding:20px 22px 0;z-index:6;pointer-events:none;
-  display:flex;flex-direction:column;gap:14px}
-.brand{display:flex;flex-direction:column;gap:2px}
-.brand h1{margin:0;font-family:var(--myeong);font-weight:800;font-size:23px;letter-spacing:-.02em;line-height:1.2}
-.brand span{color:var(--mute);font-size:11px;letter-spacing:.06em}
-.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;pointer-events:auto}
+.top{position:fixed;top:0;left:0;right:0;padding:18px 20px 0;z-index:9;pointer-events:none;
+  display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.brand{display:flex;flex-direction:column;gap:1px;min-width:0}
+.brand h1{margin:0;font-family:var(--myeong);font-weight:800;font-size:22px;letter-spacing:-.02em;line-height:1.2}
+.brand span{color:var(--mute);font-size:10.5px;letter-spacing:.06em}
 
 .glass{background:var(--glass);border:1px solid rgba(255,255,255,.8);
   -webkit-backdrop-filter:blur(22px) saturate(1.6);backdrop-filter:blur(22px) saturate(1.6);
   box-shadow:0 1px 0 rgba(255,255,255,.85) inset, 0 10px 30px rgba(24,24,32,.07)}
 
-.search{position:relative;flex:1 1 190px;max-width:280px}
-.search input{width:100%;height:40px;padding:0 34px 0 15px;border-radius:20px;
+.search{position:relative;flex:none;width:208px;pointer-events:auto}
+.search input{width:100%;height:34px;padding:0 30px 0 13px;border-radius:17px;
   background:var(--glass);border:1px solid rgba(255,255,255,.8);color:var(--ink);
   -webkit-backdrop-filter:blur(22px) saturate(1.6);backdrop-filter:blur(22px) saturate(1.6);
   box-shadow:0 1px 0 rgba(255,255,255,.85) inset, 0 10px 30px rgba(24,24,32,.07);
-  font-family:var(--sans);font-size:13.5px;outline:none;transition:border-color .25s,box-shadow .25s}
+  font-family:var(--sans);font-size:12.5px;outline:none;transition:border-color .25s,box-shadow .25s}
 .search input::placeholder{color:var(--mute)}
 .search input:focus{border-color:rgba(20,20,20,.3);box-shadow:0 0 0 3px rgba(20,20,20,.06)}
-.search .x{position:absolute;right:7px;top:7px;width:26px;height:26px;border:0;border-radius:50%;
+.search .x{position:absolute;right:5px;top:5px;width:24px;height:24px;border:0;border-radius:50%;
   background:transparent;color:var(--mute);cursor:pointer;font-size:14px;line-height:1;display:none}
 .search .x.on{display:block}
-.results{position:absolute;top:46px;left:0;right:0;border-radius:16px;overflow:hidden;display:none;
+.results{position:absolute;top:40px;left:0;right:0;border-radius:16px;overflow:hidden;display:none;
   background:var(--glass-2);border:1px solid rgba(255,255,255,.85);
   -webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6);
   box-shadow:0 18px 44px rgba(24,24,32,.13)}
 .results.on{display:block}
-.results button{display:block;width:100%;text-align:left;padding:10px 15px;background:none;border:0;
-  color:var(--ink);font-family:var(--sans);font-size:13.5px;cursor:pointer}
+.results button{display:block;width:100%;text-align:left;padding:9px 14px;background:none;border:0;
+  color:var(--ink);font-family:var(--sans);font-size:12.5px;cursor:pointer}
 .results button+button{border-top:1px solid var(--hair)}
 .results button:hover,.results button:focus{background:rgba(20,20,20,.05);outline:none}
 .results em{font-style:normal;color:var(--mute);font-size:11px;margin-left:7px}
-
-.chips{display:flex;gap:7px;flex-wrap:wrap;pointer-events:auto}
-.chip{height:34px;padding:0 14px;border-radius:17px;cursor:pointer;
-  background:var(--glass);border:1px solid rgba(255,255,255,.8);
-  -webkit-backdrop-filter:blur(22px) saturate(1.6);backdrop-filter:blur(22px) saturate(1.6);
-  box-shadow:0 1px 0 rgba(255,255,255,.85) inset, 0 10px 30px rgba(24,24,32,.07);
-  color:var(--mute);font-family:var(--sans);font-size:12.5px;letter-spacing:.01em;
-  display:inline-flex;align-items:center;gap:8px;
-  transition:transform .24s cubic-bezier(.34,1.7,.5,1),color .22s,border-color .22s,opacity .22s;opacity:.62}
-.chip:active{transform:scale(.93)}
-.chip.on{color:var(--ink);opacity:1;border-color:rgba(20,20,20,.16)}
-.chip i{width:17px;height:0;border-top:1.5px solid currentColor;display:block}
-.chip[data-k="memorial"] i{border-top-style:dotted;border-top-width:2px}
-.chip[data-k="homage"] i{border-top-style:dashed}
+@media (max-width:560px){.search{width:150px}.brand h1{font-size:19px}}
 
 /* ───────── 해설 카드 ───────── */
 .sheet{position:fixed;z-index:8;display:flex;flex-direction:column;overflow:hidden;
-  border-radius:20px;background:var(--glass-2);border:1px solid rgba(255,255,255,.85);
-  -webkit-backdrop-filter:blur(26px) saturate(1.7);backdrop-filter:blur(26px) saturate(1.7);
-  box-shadow:0 1px 0 rgba(255,255,255,.9) inset, 0 26px 64px rgba(24,24,32,.16);
+  left:14px;right:14px;bottom:14px;height:46vh;
+  border-radius:22px;background:var(--glass);border:1px solid rgba(255,255,255,.8);
+  -webkit-backdrop-filter:blur(22px) saturate(1.6);backdrop-filter:blur(22px) saturate(1.6);
+  box-shadow:0 1px 0 rgba(255,255,255,.85) inset, 0 -8px 44px rgba(24,24,32,.12);
   transition:transform .55s cubic-bezier(.22,1.3,.36,1),opacity .32s}
-.sheet.hide{opacity:0;pointer-events:none}
+.sheet.hide{opacity:0;pointer-events:none;transform:translateY(calc(100% + 22px))}
+.sheet.drag{transition:opacity .32s}
 @media (min-width:861px){
-  .sheet{top:22px;right:22px;bottom:22px;width:396px}
-  .sheet.hide{transform:translateX(22px) scale(.98)}
-  .grab{display:none}
+  .sheet{left:max(20px,calc(50% - 380px));right:max(20px,calc(50% - 380px));bottom:18px}
 }
-@media (max-width:860px){
-  .sheet{left:14px;right:14px;bottom:14px;max-height:62vh}
-  .sheet.hide{transform:translateY(calc(100% + 22px))}
-}
-.grab{width:34px;height:3px;border-radius:2px;background:rgba(20,20,20,.16);margin:10px auto 0;flex:none}
-.sheet header{padding:20px 22px 15px;border-bottom:1px solid var(--hair);flex:none;position:relative}
-.sheet header h2{margin:0;font-family:var(--myeong);font-size:25px;font-weight:800;line-height:1.28;
+.grab{flex:none;display:flex;justify-content:center;align-items:center;height:20px;
+  cursor:ns-resize;touch-action:none}
+.grab::before{content:'';width:42px;height:4px;border-radius:2px;background:rgba(20,20,20,.17);
+  transition:background .2s,width .2s}
+.grab:hover::before,.sheet.drag .grab::before{background:rgba(20,20,20,.34);width:54px}
+.sheet header{padding:2px 20px 11px;border-bottom:1px solid var(--hair);flex:none;position:relative}
+.sheet header h2{margin:0;font-family:var(--myeong);font-size:21px;font-weight:800;line-height:1.26;
   letter-spacing:-.02em;padding-right:36px}
-.sheet header p{margin:5px 0 0;color:var(--mute);font-size:11.5px;letter-spacing:.03em}
-.close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;
+.sheet header p{margin:3px 0 0;color:var(--mute);font-size:11px;letter-spacing:.03em}
+.close{position:absolute;top:-2px;right:14px;width:30px;height:30px;border-radius:50%;
   border:1px solid var(--line);background:rgba(255,255,255,.5);color:var(--ink-2);cursor:pointer;
   font-size:14px;line-height:1;transition:transform .24s cubic-bezier(.34,1.7,.5,1)}
 .close:active{transform:scale(.86) rotate(90deg)}
-.tally{display:flex;gap:16px;flex-wrap:wrap;padding:12px 22px;border-bottom:1px solid var(--hair);
-  flex:none;font-size:11.5px;color:var(--mute);letter-spacing:.01em}
-.tally b{font-family:var(--myeong);font-size:16px;font-weight:800;color:var(--ink);margin-right:5px}
-.body{overflow-y:auto;overscroll-behavior:contain;padding:4px 22px 24px;-webkit-overflow-scrolling:touch}
-.group{margin-top:22px}
-.group h3{margin:0 0 10px;font-size:11.5px;font-weight:600;color:var(--mute);letter-spacing:.03em;
+.tally{display:flex;gap:14px;flex-wrap:wrap;padding:8px 20px;border-bottom:1px solid var(--hair);
+  flex:none;font-size:11px;color:var(--mute);letter-spacing:.01em}
+.tally b{font-family:var(--myeong);font-size:15px;font-weight:800;color:var(--ink);margin-right:4px}
+.body{overflow-y:auto;overscroll-behavior:contain;padding:2px 20px 16px;-webkit-overflow-scrolling:touch}
+.group{margin-top:15px}
+.group h3{margin:0 0 8px;font-size:11.5px;font-weight:600;color:var(--mute);letter-spacing:.03em;
   display:flex;align-items:center;gap:9px}
 .group h3::before{content:'';width:20px;height:0;border-top:1.5px solid var(--ink-2);flex:none}
 .group.m h3::before{border-top-style:dotted;border-top-width:2px}
 .group.h h3::before{border-top-style:dashed}
 .group.out h3::before{border-top-color:var(--mute)}
-.item{padding:13px 0;border-top:1px solid var(--hair)}
+.item{padding:11px 0;border-top:1px solid var(--hair)}
 .item:first-of-type{border-top:0}
 .item .who{font-size:11.5px;color:var(--mute);display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .item .what{font-family:var(--myeong);font-size:16.5px;font-weight:700;line-height:1.42;
@@ -121,7 +107,7 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
 .item .tale{margin:7px 0 0;font-size:13px;line-height:1.68;color:var(--ink-2)}
 .badge{font-style:normal;font-size:9.5px;letter-spacing:.08em;color:var(--ink);
   border:1px solid var(--line);border-radius:3px;padding:2px 6px}
-.item.lit{background:rgba(20,20,20,.04);border-radius:12px;padding:13px 14px;margin:0 -14px}
+.item.lit{background:rgba(20,20,20,.05);border-radius:12px;padding:11px 13px;margin:0 -13px}
 .item .links{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap}
 .item a{font-size:11.5px;text-decoration:none;color:var(--ink-2);border:1px solid var(--line);
   border-radius:14px;padding:4px 12px;transition:background .2s,color .2s,border-color .2s}
@@ -131,7 +117,10 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
 .jump:hover{color:var(--ink);border-color:var(--ink)}
 
 /* ───────── 조작 ───────── */
-.tools{position:fixed;left:22px;bottom:22px;z-index:6;display:flex;gap:8px;align-items:center}
+.tools{position:fixed;left:20px;bottom:calc(20px + var(--sheetH,0px));z-index:7;display:flex;gap:8px;
+  align-items:center;transition:bottom .5s cubic-bezier(.22,1.3,.36,1),opacity .3s}
+.sheet.drag~.tools{transition:opacity .3s}
+.tools.dim{opacity:0;pointer-events:none}
 .tool{width:40px;height:40px;border-radius:50%;cursor:pointer;color:var(--ink);font-size:15px;
   background:var(--glass);border:1px solid rgba(255,255,255,.8);
   -webkit-backdrop-filter:blur(22px) saturate(1.6);backdrop-filter:blur(22px) saturate(1.6);
@@ -139,13 +128,12 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
   display:grid;place-items:center;transition:transform .24s cubic-bezier(.34,1.75,.5,1)}
 .tool:active{transform:scale(.85)}
 .tool.wide{width:auto;padding:0 16px;border-radius:20px;font-size:12.5px;font-family:var(--sans)}
-@media (max-width:860px){.tools{left:14px;bottom:auto;top:calc(100% - 62px)}}
-.hint{position:fixed;left:0;right:0;bottom:32px;text-align:center;color:var(--mute);font-size:11px;
+@media (max-width:560px){.tools{left:14px}}
+.hint{position:fixed;left:0;right:0;bottom:26px;text-align:center;color:var(--mute);font-size:11px;
   letter-spacing:.02em;z-index:5;pointer-events:none;transition:opacity .6s}
-@media (max-width:860px){.hint{bottom:auto;top:calc(100% - 96px)}}
 .hint.gone{opacity:0}
-.toast{position:fixed;left:50%;transform:translate(-50%,14px) scale(.97);bottom:82px;z-index:9;
-  max-width:min(430px,calc(100% - 28px));display:none;align-items:center;gap:12px;
+.toast{position:fixed;left:50%;transform:translate(-50%,14px) scale(.97);top:92px;z-index:9;
+  width:min(430px,calc(100% - 28px));display:none;align-items:center;gap:12px;
   padding:12px 12px 12px 17px;border-radius:18px;color:var(--ink-2);font-size:12.5px;line-height:1.5;
   background:var(--glass-2);border:1px solid rgba(255,255,255,.85);
   -webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6);
@@ -154,7 +142,6 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
 .toast.on{display:flex;opacity:1;transform:translate(-50%,0) scale(1)}
 .toast button{flex:none;border:1px solid var(--line);background:none;color:var(--ink);
   font-family:var(--sans);font-size:12px;border-radius:13px;padding:6px 12px;cursor:pointer}
-@media (max-width:860px){.toast{bottom:auto;top:104px}}
 :focus-visible{outline:1.5px solid var(--ink);outline-offset:3px}
 @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms !important}}
 </style>
@@ -164,22 +151,15 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
 
 <div class="top">
   <div class="brand"><h1>헌정의 지도</h1><span id="count"></span></div>
-  <div class="bar">
-    <div class="search">
-      <input id="q" type="search" placeholder="음악가 이름으로 찾기" autocomplete="off" spellcheck="false">
-      <button class="x" id="qx" aria-label="지우기">✕</button>
-      <div class="results" id="res"></div>
-    </div>
-    <div class="chips" id="chips">
-      <button class="chip on" data-k="dedication"><i></i>헌정</button>
-      <button class="chip on" data-k="memorial"><i></i>추모</button>
-      <button class="chip on" data-k="homage"><i></i>오마주</button>
-    </div>
+  <div class="search">
+    <input id="q" type="search" placeholder="음악가 이름으로 찾기" autocomplete="off" spellcheck="false">
+    <button class="x" id="qx" aria-label="지우기">✕</button>
+    <div class="results" id="res"></div>
   </div>
 </div>
 
 <div class="sheet hide" id="sheet">
-  <div class="grab"></div>
+  <div class="grab" id="grab" role="separator" aria-label="카드 높이 조절"></div>
   <header>
     <h2 id="sName">—</h2>
     <p id="sSub"></p>
@@ -193,7 +173,6 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
   <button class="tool" id="zin" aria-label="확대">＋</button>
   <button class="tool" id="zout" aria-label="축소">－</button>
   <button class="tool wide" id="reset">전체 보기</button>
-  <button class="tool wide" id="shake">흔들기</button>
 </div>
 <div class="toast" id="toast">
   <span>미리보기 창에서는 외부 초상 이미지를 불러올 수 없습니다. 파일을 내려받아 브라우저에서 열면 실제 초상이 나타납니다.</span>
@@ -447,14 +426,16 @@ function resize(){
   W = innerWidth; H = innerHeight;
   cv.width = W*DPR; cv.height = H*DPR;
   ctx.setTransform(DPR,0,0,DPR,0,0);
-  panelW = (W>860 && !sheet.classList.contains('hide')) ? 440 : 0;
+  panelW = 0;
+  if(!sheet.classList.contains('hide')) setSheetH(sheetH, false);
   K_MIN = Math.min(.25, fitScale()*0.55);
 }
-function viewCX(){ return (W - panelW)/2; }
-function viewCY(){ return W>860 ? H/2 : H/2 - (sheet.classList.contains('hide')?0:Math.min(H*0.33,190)); }
+function openH(){ return sheet.classList.contains('hide') ? 0 : sheetH; }
+function viewCX(){ return W/2; }
+function viewCY(){ return Math.max(H*0.09, (H - openH())/2); }
 function fitScale(){
   const w = bounds.maxX-bounds.minX+130, h = bounds.maxY-bounds.minY+130;
-  return Math.min((W-panelW-40)/w, (H-150)/h);
+  return Math.min((W-40)/w, (H-openH()-140)/h);
 }
 function toScreen(n){ return [ (n.x-cam.x)*cam.k + viewCX(), (n.y-cam.y)*cam.k + viewCY() ]; }
 function toWorld(sx,sy){ return [ (sx-viewCX())/cam.k + cam.x, (sy-viewCY())/cam.k + cam.y ]; }
@@ -586,11 +567,62 @@ function pick(sx,sy){
 
 /* ── 선택 & 패널 ── */
 const sheet=document.getElementById('sheet');
+const tools=document.querySelector('.tools');
+let sheetH = 0;
+function stops(){ return [Math.round(H*0.32), Math.round(H*0.46), Math.round(H*0.88)]; }
+function setSheetH(px, animate){
+  const st = stops();
+  sheetH = Math.max(st[0]*0.7, Math.min(st[2], px));
+  sheet.style.height = sheetH+'px';
+  document.documentElement.style.setProperty('--sheetH', (sheet.classList.contains('hide')?0:sheetH)+'px');
+  tools.classList.toggle('dim', !sheet.classList.contains('hide') && sheetH > H*0.6);
+}
+function snap(px){
+  const st = stops();
+  let best = st[0], d = Infinity;
+  for(const v of st){ const q = Math.abs(v-px); if(q<d){ d=q; best=v; } }
+  return best;
+}
+
+/* 손잡이 드래그 — 카드를 위아래로 늘였다 줄임 */
+const grab = document.getElementById('grab');
+let gdrag = null;
+grab.addEventListener('pointerdown', e=>{
+  gdrag = {y:e.clientY, h:sheetH};
+  grab.setPointerCapture(e.pointerId);
+  sheet.classList.add('drag');
+  e.preventDefault();
+});
+grab.addEventListener('pointermove', e=>{
+  if(!gdrag) return;
+  setSheetH(gdrag.h + (gdrag.y - e.clientY), false);
+});
+function endGrab(e){
+  if(!gdrag) return;
+  gdrag = null;
+  sheet.classList.remove('drag');
+  if(sheetH < H*0.22){ select(null); return; }
+  sheet.style.transition = 'height .38s cubic-bezier(.22,1.3,.36,1), transform .55s cubic-bezier(.22,1.3,.36,1), opacity .32s';
+  setSheetH(snap(sheetH), true);
+  setTimeout(()=>{ sheet.style.transition=''; }, 420);
+}
+grab.addEventListener('pointerup', endGrab);
+grab.addEventListener('pointercancel', endGrab);
+
 function select(n, focusRel){
   sel = n;
-  if(!n){ sheet.classList.add('hide'); resize(); return; }
+  if(!n){
+    sheet.classList.add('hide');
+    document.documentElement.style.setProperty('--sheetH','0px');
+    tools.classList.remove('dim');
+    resize(); return;
+  }
   buildPanel(n, focusRel);
+  const reopening = sheet.classList.contains('hide');
   sheet.classList.remove('hide');
+  if(reopening || !sheetH) setSheetH(stops()[1], false);
+  else setSheetH(sheetH, false);
+  hideHint();
   resize();
   const tk = Math.max(cam.k, 1.15);
   flyTo(n.x, n.y, tk);
@@ -705,25 +737,14 @@ document.addEventListener('pointerdown', e=>{
   if(!res.contains(e.target) && e.target!==q) res.classList.remove('on');
 }, true);
 
-/* ── 필터 ── */
-document.getElementById('chips').addEventListener('click', e=>{
-  const c = e.target.closest('.chip'); if(!c) return;
-  on[c.dataset.k] = !on[c.dataset.k];
-  c.classList.toggle('on', on[c.dataset.k]);
-});
-
 /* ── 버튼 ── */
 document.getElementById('zin').onclick = ()=>{ cam.tk=clampK(cam.tk*1.55); cam.mode = cam.mode==='spring'?'spring':'free'; };
 document.getElementById('zout').onclick= ()=>{ cam.tk=clampK(cam.tk/1.55); };
 document.getElementById('reset').onclick=()=>{ select(null); setTimeout(()=>{measure();fitAll();},20); };
-document.getElementById('shake').onclick=()=>{
-  for(const n of nodes){ n.vx += (rnd()-.5)*26; n.vy += (rnd()-.5)*26; }
-  alpha = 1; hideHint();
-};
 document.getElementById('retry').onclick=()=>{ hideToast(); IMG.clear(); portraitOK=0; loadPortraits(); };
-const hintEl=document.getElementById('hint');
-let hinted=false;
-function hideHint(){ if(!hinted){ hinted=true; hintEl.classList.add('gone'); } }
+var hintEl=document.getElementById('hint');
+var hinted=false;
+function hideHint(){ if(!hinted && hintEl){ hinted=true; hintEl.classList.add('gone'); } }
 setTimeout(hideHint, 9000);
 
 /* ── 루프 ── */
