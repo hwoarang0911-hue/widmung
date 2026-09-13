@@ -1,0 +1,932 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="description" content="음악가 사이의 헌정·추모·오마주를 별자리처럼 탐색하는 인터랙티브 지도">
+<title>헌정의 지도</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{
+  --paper:#F7F7F5;
+  --ink:#141414;
+  --ink-2:#3E3E3C;
+  --mute:#87867F;
+  --line:rgba(20,20,20,.13);
+  --hair:rgba(20,20,20,.07);
+  --glass:rgba(255,255,255,.60);
+  --glass-2:rgba(255,255,255,.74);
+  --sans:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',system-ui,sans-serif;
+  --myeong:'Nanum Myeongjo','Apple SD Gothic Neo',serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.6;touch-action:none}
+canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
+
+/* ───────── 머리말 ───────── */
+.top{position:fixed;top:0;left:0;right:0;padding:20px 22px 0;z-index:6;pointer-events:none;
+  display:flex;flex-direction:column;gap:14px}
+.brand{display:flex;flex-direction:column;gap:2px}
+.brand h1{margin:0;font-family:var(--myeong);font-weight:800;font-size:23px;letter-spacing:-.02em;line-height:1.2}
+.brand span{color:var(--mute);font-size:11px;letter-spacing:.06em}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;pointer-events:auto}
+
+.glass{background:var(--glass);border:1px solid rgba(255,255,255,.8);
+  -webkit-backdrop-filter:blur(22px) saturate(1.6);backdrop-filter:blur(22px) saturate(1.6);
+  box-shadow:0 1px 0 rgba(255,255,255,.85) inset, 0 10px 30px rgba(24,24,32,.07)}
+
+.search{position:relative;flex:1 1 190px;max-width:280px}
+.search input{width:100%;height:40px;padding:0 34px 0 15px;border-radius:20px;
+  background:var(--glass);border:1px solid rgba(255,255,255,.8);color:var(--ink);
+  -webkit-backdrop-filter:blur(22px) saturate(1.6);backdrop-filter:blur(22px) saturate(1.6);
+  box-shadow:0 1px 0 rgba(255,255,255,.85) inset, 0 10px 30px rgba(24,24,32,.07);
+  font-family:var(--sans);font-size:13.5px;outline:none;transition:border-color .25s,box-shadow .25s}
+.search input::placeholder{color:var(--mute)}
+.search input:focus{border-color:rgba(20,20,20,.3);box-shadow:0 0 0 3px rgba(20,20,20,.06)}
+.search .x{position:absolute;right:7px;top:7px;width:26px;height:26px;border:0;border-radius:50%;
+  background:transparent;color:var(--mute);cursor:pointer;font-size:14px;line-height:1;display:none}
+.search .x.on{display:block}
+.results{position:absolute;top:46px;left:0;right:0;border-radius:16px;overflow:hidden;display:none;
+  background:var(--glass-2);border:1px solid rgba(255,255,255,.85);
+  -webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6);
+  box-shadow:0 18px 44px rgba(24,24,32,.13)}
+.results.on{display:block}
+.results button{display:block;width:100%;text-align:left;padding:10px 15px;background:none;border:0;
+  color:var(--ink);font-family:var(--sans);font-size:13.5px;cursor:pointer}
+.results button+button{border-top:1px solid var(--hair)}
+.results button:hover,.results button:focus{background:rgba(20,20,20,.05);outline:none}
+.results em{font-style:normal;color:var(--mute);font-size:11px;margin-left:7px}
+
+.chips{display:flex;gap:7px;flex-wrap:wrap;pointer-events:auto}
+.chip{height:34px;padding:0 14px;border-radius:17px;cursor:pointer;
+  background:var(--glass);border:1px solid rgba(255,255,255,.8);
+  -webkit-backdrop-filter:blur(22px) saturate(1.6);backdrop-filter:blur(22px) saturate(1.6);
+  box-shadow:0 1px 0 rgba(255,255,255,.85) inset, 0 10px 30px rgba(24,24,32,.07);
+  color:var(--mute);font-family:var(--sans);font-size:12.5px;letter-spacing:.01em;
+  display:inline-flex;align-items:center;gap:8px;
+  transition:transform .24s cubic-bezier(.34,1.7,.5,1),color .22s,border-color .22s,opacity .22s;opacity:.62}
+.chip:active{transform:scale(.93)}
+.chip.on{color:var(--ink);opacity:1;border-color:rgba(20,20,20,.16)}
+.chip i{width:17px;height:0;border-top:1.5px solid currentColor;display:block}
+.chip[data-k="memorial"] i{border-top-style:dotted;border-top-width:2px}
+.chip[data-k="homage"] i{border-top-style:dashed}
+
+/* ───────── 해설 카드 ───────── */
+.sheet{position:fixed;z-index:8;display:flex;flex-direction:column;overflow:hidden;
+  border-radius:20px;background:var(--glass-2);border:1px solid rgba(255,255,255,.85);
+  -webkit-backdrop-filter:blur(26px) saturate(1.7);backdrop-filter:blur(26px) saturate(1.7);
+  box-shadow:0 1px 0 rgba(255,255,255,.9) inset, 0 26px 64px rgba(24,24,32,.16);
+  transition:transform .55s cubic-bezier(.22,1.3,.36,1),opacity .32s}
+.sheet.hide{opacity:0;pointer-events:none}
+@media (min-width:861px){
+  .sheet{top:22px;right:22px;bottom:22px;width:396px}
+  .sheet.hide{transform:translateX(22px) scale(.98)}
+  .grab{display:none}
+}
+@media (max-width:860px){
+  .sheet{left:14px;right:14px;bottom:14px;max-height:62vh}
+  .sheet.hide{transform:translateY(calc(100% + 22px))}
+}
+.grab{width:34px;height:3px;border-radius:2px;background:rgba(20,20,20,.16);margin:10px auto 0;flex:none}
+.sheet header{padding:20px 22px 15px;border-bottom:1px solid var(--hair);flex:none;position:relative}
+.sheet header h2{margin:0;font-family:var(--myeong);font-size:25px;font-weight:800;line-height:1.28;
+  letter-spacing:-.02em;padding-right:36px}
+.sheet header p{margin:5px 0 0;color:var(--mute);font-size:11.5px;letter-spacing:.03em}
+.close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;
+  border:1px solid var(--line);background:rgba(255,255,255,.5);color:var(--ink-2);cursor:pointer;
+  font-size:14px;line-height:1;transition:transform .24s cubic-bezier(.34,1.7,.5,1)}
+.close:active{transform:scale(.86) rotate(90deg)}
+.tally{display:flex;gap:16px;flex-wrap:wrap;padding:12px 22px;border-bottom:1px solid var(--hair);
+  flex:none;font-size:11.5px;color:var(--mute);letter-spacing:.01em}
+.tally b{font-family:var(--myeong);font-size:16px;font-weight:800;color:var(--ink);margin-right:5px}
+.body{overflow-y:auto;overscroll-behavior:contain;padding:4px 22px 24px;-webkit-overflow-scrolling:touch}
+.group{margin-top:22px}
+.group h3{margin:0 0 10px;font-size:11.5px;font-weight:600;color:var(--mute);letter-spacing:.03em;
+  display:flex;align-items:center;gap:9px}
+.group h3::before{content:'';width:20px;height:0;border-top:1.5px solid var(--ink-2);flex:none}
+.group.m h3::before{border-top-style:dotted;border-top-width:2px}
+.group.h h3::before{border-top-style:dashed}
+.group.out h3::before{border-top-color:var(--mute)}
+.item{padding:13px 0;border-top:1px solid var(--hair)}
+.item:first-of-type{border-top:0}
+.item .who{font-size:11.5px;color:var(--mute);display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.item .what{font-family:var(--myeong);font-size:16.5px;font-weight:700;line-height:1.42;
+  letter-spacing:-.01em;margin:3px 0 2px}
+.item .meta{font-size:11px;color:var(--mute);letter-spacing:.01em}
+.item .tale{margin:7px 0 0;font-size:13px;line-height:1.68;color:var(--ink-2)}
+.badge{font-style:normal;font-size:9.5px;letter-spacing:.08em;color:var(--ink);
+  border:1px solid var(--line);border-radius:3px;padding:2px 6px}
+.item.lit{background:rgba(20,20,20,.04);border-radius:12px;padding:13px 14px;margin:0 -14px}
+.item .links{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap}
+.item a{font-size:11.5px;text-decoration:none;color:var(--ink-2);border:1px solid var(--line);
+  border-radius:14px;padding:4px 12px;transition:background .2s,color .2s,border-color .2s}
+.item a:hover{background:var(--ink);border-color:var(--ink);color:#fff}
+.jump{background:none;border:0;color:var(--mute);font:inherit;cursor:pointer;padding:0;
+  border-bottom:1px solid var(--line)}
+.jump:hover{color:var(--ink);border-color:var(--ink)}
+
+/* ───────── 조작 ───────── */
+.tools{position:fixed;left:22px;bottom:22px;z-index:6;display:flex;gap:8px;align-items:center}
+.tool{width:40px;height:40px;border-radius:50%;cursor:pointer;color:var(--ink);font-size:15px;
+  background:var(--glass);border:1px solid rgba(255,255,255,.8);
+  -webkit-backdrop-filter:blur(22px) saturate(1.6);backdrop-filter:blur(22px) saturate(1.6);
+  box-shadow:0 1px 0 rgba(255,255,255,.85) inset, 0 10px 30px rgba(24,24,32,.07);
+  display:grid;place-items:center;transition:transform .24s cubic-bezier(.34,1.75,.5,1)}
+.tool:active{transform:scale(.85)}
+.tool.wide{width:auto;padding:0 16px;border-radius:20px;font-size:12.5px;font-family:var(--sans)}
+@media (max-width:860px){.tools{left:14px;bottom:auto;top:calc(100% - 62px)}}
+.hint{position:fixed;left:0;right:0;bottom:32px;text-align:center;color:var(--mute);font-size:11px;
+  letter-spacing:.02em;z-index:5;pointer-events:none;transition:opacity .6s}
+@media (max-width:860px){.hint{bottom:auto;top:calc(100% - 96px)}}
+.hint.gone{opacity:0}
+.toast{position:fixed;left:50%;transform:translate(-50%,14px) scale(.97);bottom:82px;z-index:9;
+  max-width:min(430px,calc(100% - 28px));display:none;align-items:center;gap:12px;
+  padding:12px 12px 12px 17px;border-radius:18px;color:var(--ink-2);font-size:12.5px;line-height:1.5;
+  background:var(--glass-2);border:1px solid rgba(255,255,255,.85);
+  -webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6);
+  box-shadow:0 20px 44px rgba(24,24,32,.16);opacity:0;
+  transition:opacity .35s,transform .45s cubic-bezier(.22,1.4,.36,1)}
+.toast.on{display:flex;opacity:1;transform:translate(-50%,0) scale(1)}
+.toast button{flex:none;border:1px solid var(--line);background:none;color:var(--ink);
+  font-family:var(--sans);font-size:12px;border-radius:13px;padding:6px 12px;cursor:pointer}
+@media (max-width:860px){.toast{bottom:auto;top:104px}}
+:focus-visible{outline:1.5px solid var(--ink);outline-offset:3px}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms !important}}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div class="top">
+  <div class="brand"><h1>헌정의 지도</h1><span id="count"></span></div>
+  <div class="bar">
+    <div class="search">
+      <input id="q" type="search" placeholder="음악가 이름으로 찾기" autocomplete="off" spellcheck="false">
+      <button class="x" id="qx" aria-label="지우기">✕</button>
+      <div class="results" id="res"></div>
+    </div>
+    <div class="chips" id="chips">
+      <button class="chip on" data-k="dedication"><i></i>헌정</button>
+      <button class="chip on" data-k="memorial"><i></i>추모</button>
+      <button class="chip on" data-k="homage"><i></i>오마주</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet hide" id="sheet">
+  <div class="grab"></div>
+  <header>
+    <h2 id="sName">—</h2>
+    <p id="sSub"></p>
+    <button class="close" id="sClose" aria-label="닫기">✕</button>
+  </header>
+  <div class="tally" id="sTally"></div>
+  <div class="body" id="sBody"></div>
+</div>
+
+<div class="tools">
+  <button class="tool" id="zin" aria-label="확대">＋</button>
+  <button class="tool" id="zout" aria-label="축소">－</button>
+  <button class="tool wide" id="reset">전체 보기</button>
+  <button class="tool wide" id="shake">흔들기</button>
+</div>
+<div class="toast" id="toast">
+  <span>미리보기 창에서는 외부 초상 이미지를 불러올 수 없습니다. 파일을 내려받아 브라우저에서 열면 실제 초상이 나타납니다.</span>
+  <button id="retry">다시 시도</button>
+</div>
+<p class="hint" id="hint">얼굴을 누르면 헌정 기록이 열립니다 · 선 위의 빛나는 점은 널리 알려진 곡입니다</p>
+
+<script type="application/json" id="atlas-data">{"artists":[{"id":0,"ko":"샤를 발랑탱 알캉","name":"Alkan, Charles-Valentin","short":"알캉"},{"id":1,"ko":"안톤 아렌스키","name":"Arensky, Anton","short":"아렌스키"},{"id":2,"ko":"젤마르 바게","name":"Bagge, Selmar","short":"바게"},{"id":3,"ko":"볼데마르 바르기엘","name":"Bargiel, Woldemar","short":"바르기엘"},{"id":4,"ko":"벨러 버르토크","name":"Bartók, Béla","short":"버르토크"},{"id":5,"ko":"루트비히 판 베토벤","name":"Beethoven, Ludwig van","short":"베토벤"},{"id":6,"ko":"윌리엄 스턴데일 베넷","name":"Bennett, William Sterndale","short":"베넷"},{"id":7,"ko":"알반 베르크","name":"Berg, Alban","short":"알반 베르크"},{"id":8,"ko":"콘라트 마티아스 베르크","name":"Berg, Konrad-Mathias","short":"베르크"},{"id":9,"ko":"엑토르 베를리오즈","name":"Berlioz, Hector","short":"베를리오즈"},{"id":10,"ko":"조르주 비제","name":"Bizet, Georges","short":"비제"},{"id":11,"ko":"에르네스트 블로흐","name":"Bloch, Ernest","short":"에르네스트 블로흐"},{"id":12,"ko":"요제프 블로흐","name":"Bloch, József","short":"블로흐"},{"id":13,"ko":"알렉산드르 보로딘","name":"Borodin, Aleksandr","short":"보로딘"},{"id":14,"ko":"세르게이 보르트키에비치","name":"Bortkiewicz, Sergei","short":"보르트키에비치"},{"id":15,"ko":"데이비드 보위","name":"Bowie, David","short":"데이비드 보위"},{"id":16,"ko":"요하네스 브람스","name":"Brahms, Johannes","short":"브람스"},{"id":17,"ko":"아나톨리 브란두코프","name":"Brandukov, Anatoly","short":"브란두코프"},{"id":18,"ko":"벤저민 브리튼","name":"Britten, Benjamin","short":"브리튼"},{"id":19,"ko":"아돌프 브로드스키","name":"Brodsky, Adolph","short":"브로드스키"},{"id":20,"ko":"클리퍼드 브라운","name":"Brown, Clifford","short":"클리퍼드 브라운"},{"id":21,"ko":"막스 브루흐","name":"Bruch, Max","short":"브루흐"},{"id":22,"ko":"안톤 브루크너","name":"Bruckner, Anton","short":"브루크너"},{"id":23,"ko":"페루초 부소니","name":"Busoni, Ferruccio","short":"부소니"},{"id":24,"ko":"한스 폰 뷜로","name":"Bülow, Hans von","short":"뷜로"},{"id":25,"ko":"로베르 카자드쥐","name":"Casadesus, Robert","short":"카자드쥐"},{"id":26,"ko":"알프레도 카셀라","name":"Casella, Alfredo","short":"카셀라"},{"id":27,"ko":"폴 체임버스","name":"Chambers, Paul","short":"폴 체임버스"},{"id":28,"ko":"에르네스트 쇼송","name":"Chausson, Ernest","short":"쇼송"},{"id":29,"ko":"프레데리크 쇼팽","name":"Chopin, Frédéric","short":"쇼팽"},{"id":30,"ko":"존 콜트레인","name":"Coltrane, John","short":"존 콜트레인"},{"id":31,"ko":"페터 코르넬리우스","name":"Cornelius, Peter","short":"코르넬리우스"},{"id":32,"ko":"알프레드 코르토","name":"Cortot, Alfred","short":"코르토"},{"id":33,"ko":"요한 바프티스트 크라머","name":"Cramer, Johann Baptist","short":"크라머"},{"id":34,"ko":"마티외 크릭붐","name":"Crickboom, Mathieu","short":"크릭붐"},{"id":35,"ko":"카를 체르니","name":"Czerny, Carl","short":"체르니"},{"id":36,"ko":"앙리 달리에","name":"Dallier, Henri","short":"달리에"},{"id":37,"ko":"클로드 드뷔시","name":"Debussy, Claude","short":"드뷔시"},{"id":38,"ko":"모리스 들라주","name":"Delage, Maurice","short":"들라주"},{"id":39,"ko":"루이 디에메르","name":"Diémer, Louis","short":"디에메르"},{"id":40,"ko":"펠릭스 드레제케","name":"Draeseke, Felix","short":"드레제케"},{"id":41,"ko":"폴 뒤카","name":"Dukas, Paul","short":"뒤카"},{"id":42,"ko":"앙리 뒤파르크","name":"Duparc, Henri","short":"뒤파르크"},{"id":43,"ko":"얀 라디슬라프 두세크","name":"Dussek, Jan Ladislav","short":"두세크"},{"id":44,"ko":"안토닌 드보르자크","name":"Dvořák, Antonín","short":"드보르자크"},{"id":45,"ko":"밥 딜런","name":"Dylan, Bob","short":"밥 딜런"},{"id":46,"ko":"한스 아이슬러","name":"Eisler, Hanns","short":"아이슬러"},{"id":47,"ko":"유제프 엘스네르","name":"Elsner, Józef","short":"엘스네르"},{"id":48,"ko":"조르제 에네스쿠","name":"Enescu, George","short":"에네스쿠"},{"id":49,"ko":"마누엘 데 파야","name":"Falla, Manuel de","short":"파야"},{"id":50,"ko":"가브리엘 포레","name":"Fauré, Gabriel","short":"포레"},{"id":51,"ko":"오귀스트 프랑콤","name":"Franchomme, Auguste","short":"프랑콤"},{"id":52,"ko":"세자르 프랑크","name":"Franck, César","short":"프랑크"},{"id":53,"ko":"게오르크 프리드리히 푹스","name":"Fuchs, Georg Friedrich","short":"게오르크 프리드리히 푹스"},{"id":54,"ko":"로베르트 푹스","name":"Fuchs, Robert","short":"푹스"},{"id":55,"ko":"닐스 가데","name":"Gade, Niels","short":"가데"},{"id":56,"ko":"프리드리히 게른스하임","name":"Gernsheim, Friedrich","short":"게른스하임"},{"id":57,"ko":"알렉산드르 글라주노프","name":"Glazunov, Aleksandr","short":"글라주노프"},{"id":58,"ko":"미하일 글린카","name":"Glinka, Mikhail","short":"글린카"},{"id":59,"ko":"헤르만 괴츠","name":"Goetz, Hermann","short":"괴츠"},{"id":60,"ko":"베니 골슨","name":"Golson, Benny","short":"베니 골슨"},{"id":61,"ko":"샤를 구노","name":"Gounod, Charles","short":"구노"},{"id":62,"ko":"에드바르 그리그","name":"Grieg, Edvard","short":"그리그"},{"id":63,"ko":"우디 거스리","name":"Guthrie, Woody","short":"우디 거스리"},{"id":64,"ko":"조지 해리슨","name":"Harrison, George","short":"조지 해리슨"},{"id":65,"ko":"로베르트 하우스만","name":"Hausmann, Robert","short":"하우스만"},{"id":66,"ko":"요제프 하이든","name":"Haydn, Joseph","short":"하이든"},{"id":67,"ko":"파니 헨젤","name":"Hensel, Fanny","short":"헨젤"},{"id":68,"ko":"아돌프 폰 헨젤트","name":"Henselt, Adolf von","short":"헨젤트"},{"id":69,"ko":"하인리히 폰 헤르초겐베르크","name":"Herzogenberg, Heinrich von","short":"헤르초겐베르크"},{"id":70,"ko":"페르디난트 힐러","name":"Hiller, Ferdinand","short":"힐러"},{"id":71,"ko":"요제프 호프만","name":"Hofmann, Josef","short":"호프만"},{"id":72,"ko":"아르튀르 오네게르","name":"Honegger, Arthur","short":"오네게르"},{"id":73,"ko":"페르디난트 훔멜","name":"Hummel, Ferdinand","short":"페르디난트 훔멜"},{"id":74,"ko":"요한 네포무크 훔멜","name":"Hummel, Johann Nepomuk","short":"훔멜"},{"id":75,"ko":"뱅상 댕디","name":"Indy, Vincent d'","short":"댕디"},{"id":76,"ko":"요제프 요아힘","name":"Joachim, Joseph","short":"요아힘"},{"id":77,"ko":"엘턴 존","name":"John, Elton","short":"엘턴 존"},{"id":78,"ko":"조제프 종겐","name":"Jongen, Joseph","short":"종겐"},{"id":79,"ko":"프리드리히 빌헬름 칼크브레너","name":"Kalkbrenner, Friedrich Wilhelm","short":"칼크브레너"},{"id":80,"ko":"요제프 크리스토프 케슬러","name":"Kessler, Joseph Christoph","short":"케슬러"},{"id":81,"ko":"테오도어 키르히너","name":"Kirchner, Theodor","short":"키르히너"},{"id":82,"ko":"샤를 쾨클랭","name":"Koechlin, Charles","short":"쾨클랭"},{"id":83,"ko":"에리히 볼프강 코른골트","name":"Korngold, Erich Wolfgang","short":"코른골트"},{"id":84,"ko":"세르게이 쿠세비츠키","name":"Koussevitzky, Serge","short":"쿠세비츠키"},{"id":85,"ko":"프리츠 크라이슬러","name":"Kreisler, Fritz","short":"크라이슬러"},{"id":86,"ko":"로돌프 크로이처","name":"Kreutzer, Rodolphe","short":"크로이처"},{"id":87,"ko":"에두아르 랄로","name":"Lalo, Édouard","short":"랄로"},{"id":88,"ko":"기욤 르쾨","name":"Lekeu, Guillaume","short":"르쾨"},{"id":89,"ko":"존 레넌","name":"Lennon, John","short":"존 레넌"},{"id":90,"ko":"존 루이스","name":"Lewis, John","short":"존 루이스"},{"id":91,"ko":"프란츠 리스트","name":"Liszt, Franz","short":"리스트"},{"id":92,"ko":"마르그리트 롱","name":"Long, Marguerite","short":"롱"},{"id":93,"ko":"세르게이 랴푸노프","name":"Lyapunov, Sergey","short":"랴푸노프"},{"id":94,"ko":"에드워드 맥다월","name":"MacDowell, Edward","short":"맥다월"},{"id":95,"ko":"알베리크 마냐르","name":"Magnard, Albéric","short":"마냐르"},{"id":96,"ko":"잔 프란체스코 말리피에로","name":"Malipiero, Gian Francesco","short":"말리피에로"},{"id":97,"ko":"밥 말리","name":"Marley, Bob","short":"밥 말리"},{"id":98,"ko":"에두아르트 마르크센","name":"Marxsen, Eduard","short":"마르크센"},{"id":99,"ko":"쥘 마스네","name":"Massenet, Jules","short":"마스네"},{"id":100,"ko":"폴 매카트니","name":"McCartney, Paul","short":"폴 매카트니"},{"id":101,"ko":"니콜라이 메트너","name":"Medtner, Nikolay","short":"메트너"},{"id":102,"ko":"펠릭스 멘델스존","name":"Mendelssohn, Felix","short":"멘델스존"},{"id":103,"ko":"앙드레 메사제","name":"Messager, André","short":"메사제"},{"id":104,"ko":"다리우스 미요","name":"Milhaud, Darius","short":"미요"},{"id":105,"ko":"찰스 밍거스","name":"Mingus, Charles","short":"찰스 밍거스"},{"id":106,"ko":"셀로니어스 멍크","name":"Monk, Thelonious","short":"셀로니어스 멍크"},{"id":107,"ko":"이그나츠 모셸레스","name":"Moscheles, Ignaz","short":"모셸레스"},{"id":108,"ko":"모리츠 모슈코프스키","name":"Moszkowski, Moritz","short":"모슈코프스키"},{"id":109,"ko":"볼프강 아마데우스 모차르트","name":"Mozart, Wolfgang Amadeus","short":"모차르트"},{"id":110,"ko":"니콜라이 먀스콥스키","name":"Myaskovsky, Nikolay","short":"먀스콥스키"},{"id":111,"ko":"비테슬라프 노바크","name":"Novák, Vítězslav","short":"노바크"},{"id":112,"ko":"다비트 오이스트라흐","name":"Oistrakh, David","short":"오이스트라흐"},{"id":113,"ko":"유진 오먼디","name":"Ormandy, Eugene","short":"오먼디"},{"id":114,"ko":"이그나치 얀 파데레프스키","name":"Paderewski, Ignacy Jan","short":"파데레프스키"},{"id":115,"ko":"니콜로 파가니니","name":"Paganini, Niccolò","short":"파가니니"},{"id":116,"ko":"가브리엘 피에르네","name":"Pierné, Gabriel","short":"피에르네"},{"id":117,"ko":"일데브란도 피체티","name":"Pizzetti, Ildebrando","short":"피체티"},{"id":118,"ko":"카미유 플레옐","name":"Pleyel, Camille","short":"플레옐"},{"id":119,"ko":"프랑시스 풀랑크","name":"Poulenc, Francis","short":"풀랑크"},{"id":120,"ko":"버드 파월","name":"Powell, Bud","short":"버드 파월"},{"id":121,"ko":"세르게이 프로코피예프","name":"Prokofiev, Sergey","short":"프로코피예프"},{"id":122,"ko":"알베르 페릴루","name":"Périlhou, Albert","short":"페릴루"},{"id":123,"ko":"마누엘 키로가","name":"Quiroga, Manuel","short":"키로가"},{"id":124,"ko":"세르게이 라흐마니노프","name":"Rachmaninoff, Sergei","short":"라흐마니노프"},{"id":125,"ko":"요아힘 라프","name":"Raff, Joachim","short":"라프"},{"id":126,"ko":"모리스 라벨","name":"Ravel, Maurice","short":"라벨"},{"id":127,"ko":"막스 레거","name":"Reger, Max","short":"레거"},{"id":128,"ko":"안톤 라이하","name":"Reicha, Anton","short":"라이하"},{"id":129,"ko":"카를 라이네케","name":"Reinecke, Carl","short":"라이네케"},{"id":130,"ko":"장고 라인하르트","name":"Reinhardt, Django","short":"장고 라인하르트"},{"id":131,"ko":"페르디난트 리스","name":"Ries, Ferdinand","short":"페르디난트 리스"},{"id":132,"ko":"프란츠 리스","name":"Ries, Franz","short":"리스"},{"id":133,"ko":"니콜라이 림스키코르사코프","name":"Rimsky-Korsakov, Nikolay","short":"림스키코르사코프"},{"id":134,"ko":"므스티슬라프 로스트로포비치","name":"Rostropovich, Mstislav","short":"로스트로포비치"},{"id":135,"ko":"알베르 루셀","name":"Roussel, Albert","short":"루셀"},{"id":136,"ko":"안톤 루빈시테인","name":"Rubinstein, Anton","short":"안톤 루빈시테인"},{"id":137,"ko":"요제프 루빈시테인","name":"Rubinstein, Joseph","short":"요제프 루빈시테인"},{"id":138,"ko":"니콜라이 루빈시테인","name":"Rubinstein, Nikolay","short":"루빈시테인"},{"id":139,"ko":"발터 모스 룸멜","name":"Rummel, Walter Morse","short":"룸멜"},{"id":140,"ko":"카미유 생상스","name":"Saint-Saëns, Camille","short":"생상스"},{"id":141,"ko":"파블로 데 사라사테","name":"Sarasate, Pablo de","short":"사라사테"},{"id":142,"ko":"에리크 사티","name":"Satie, Erik","short":"사티"},{"id":143,"ko":"크사버 샤르벤카","name":"Scharwenka, Xaver","short":"샤르벤카"},{"id":144,"ko":"프란츠 슈미트","name":"Schmidt, Franz","short":"프란츠 슈미트"},{"id":145,"ko":"플로랑 슈미트","name":"Schmitt, Florent","short":"플로랑 슈미트"},{"id":146,"ko":"야코프 슈미트","name":"Schmitt, Jacob","short":"슈미트"},{"id":147,"ko":"아르놀트 쇤베르크","name":"Schoenberg, Arnold","short":"쇤베르크"},{"id":148,"ko":"프란츠 슈베르트","name":"Schubert, Franz","short":"슈베르트"},{"id":149,"ko":"클라라 슈만","name":"Schumann, Clara","short":"클라라 슈만"},{"id":150,"ko":"게오르크 슈만","name":"Schumann, Georg","short":"게오르크 슈만"},{"id":151,"ko":"로베르트 슈만","name":"Schumann, Robert","short":"로베르트 슈만"},{"id":152,"ko":"조반니 스감바티","name":"Sgambati, Giovanni","short":"스감바티"},{"id":153,"ko":"드미트리 쇼스타코비치","name":"Shostakovich, Dmitry","short":"쇼스타코비치"},{"id":154,"ko":"에두아르 실라스","name":"Silas, Edouard","short":"실라스"},{"id":155,"ko":"알렉산드르 실로티","name":"Siloti, Aleksandr","short":"실로티"},{"id":156,"ko":"베드르지흐 스메타나","name":"Smetana, Bedřich","short":"스메타나"},{"id":157,"ko":"루이 슈포어","name":"Spohr, Louis","short":"슈포어"},{"id":158,"ko":"찰스 빌리어스 스탠퍼드","name":"Stanford, Charles Villiers","short":"스탠퍼드"},{"id":159,"ko":"링고 스타","name":"Starr, Ringo","short":"링고 스타"},{"id":160,"ko":"요한 슈트라우스 2세","name":"Strauss Jr., Johann","short":"2세"},{"id":161,"ko":"리하르트 슈트라우스","name":"Strauss, Richard","short":"슈트라우스"},{"id":162,"ko":"이고리 스트라빈스키","name":"Stravinsky, Igor","short":"스트라빈스키"},{"id":163,"ko":"요제프 수크","name":"Suk, Josef","short":"수크"},{"id":164,"ko":"요제프 시게티","name":"Szigeti, Joseph","short":"시게티"},{"id":165,"ko":"세르게이 타네예프","name":"Taneyev, Sergey","short":"타네예프"},{"id":166,"ko":"알렉상드르 탄스만","name":"Tansman, Alexandre","short":"탄스만"},{"id":167,"ko":"표트르 차이콥스키","name":"Tchaikovsky, Pyotr","short":"차이콥스키"},{"id":168,"ko":"지기스문트 탈베르크","name":"Thalberg, Sigismond","short":"탈베르크"},{"id":169,"ko":"자크 티보","name":"Thibaud, Jacques","short":"티보"},{"id":170,"ko":"폴린 비아르도","name":"Viardot, Pauline","short":"비아르도"},{"id":171,"ko":"루이 비에른","name":"Vierne, Louis","short":"비에른"},{"id":172,"ko":"앙리 비외탕","name":"Vieuxtemps, Henri","short":"비외탕"},{"id":173,"ko":"리카르도 비녜스","name":"Viñes, Ricardo","short":"비녜스"},{"id":174,"ko":"리하르트 바그너","name":"Wagner, Richard","short":"바그너"},{"id":175,"ko":"안톤 베베른","name":"Webern, Anton","short":"베베른"},{"id":176,"ko":"헨리크 비에니아프스키","name":"Wieniawski, Henri","short":"헨리크 비에니아프스키"},{"id":177,"ko":"유제프 비에니아프스키","name":"Wieniawski, Józef","short":"비에니아프스키"},{"id":178,"ko":"아우구스트 빌헬미","name":"Wilhelmj, August","short":"빌헬미"},{"id":179,"ko":"파울 비트겐슈타인","name":"Wittgenstein, Paul","short":"비트겐슈타인"},{"id":180,"ko":"요제프 뵐플","name":"Woelfl, Joseph","short":"뵐플"},{"id":181,"ko":"스티비 원더","name":"Wonder, Stevie","short":"스티비 원더"},{"id":182,"ko":"레스터 영","name":"Young, Lester","short":"레스터 영"},{"id":183,"ko":"외젠 이자이","name":"Ysaÿe, Eugène","short":"이자이"}],"relations":[{"id":0,"kind":"dedication","note":"","query":"","scope":"","to":151,"work":0},{"id":1,"kind":"dedication","note":"","query":"","scope":"첼로·피아노 원곡","to":151,"work":1},{"id":2,"kind":"dedication","note":"","query":"","scope":"","to":151,"work":2},{"id":3,"kind":"dedication","note":"","query":"","scope":"","to":151,"work":3},{"id":4,"kind":"dedication","note":"","query":"","scope":"","to":151,"work":4},{"id":5,"kind":"dedication","note":"","query":"","scope":"","to":151,"work":5},{"id":6,"kind":"dedication","note":"","query":"","scope":"","to":151,"work":6},{"id":7,"kind":"dedication","note":"","query":"","scope":"","to":151,"work":7},{"id":8,"kind":"dedication","note":"","query":"","scope":"","to":151,"work":8},{"id":9,"kind":"dedication","note":"","query":"","scope":"","to":151,"work":9},{"id":10,"kind":"dedication","note":"","query":"","scope":"","to":151,"work":10},{"id":11,"kind":"dedication","note":"","query":"","scope":"","to":151,"work":11},{"id":12,"kind":"dedication","note":"","query":"","scope":"","to":29,"work":12},{"id":13,"kind":"dedication","note":"","query":"","scope":"","to":29,"work":13},{"id":14,"kind":"memorial","note":"","query":"","scope":"","to":29,"work":14},{"id":15,"kind":"dedication","note":"","query":"","scope":"","to":29,"work":15},{"id":16,"kind":"dedication","note":"","query":"","scope":"","to":29,"work":16},{"id":17,"kind":"memorial","note":"","query":"","scope":"","to":29,"work":17},{"id":18,"kind":"dedication","note":"브람스와 게오르크 알렉산더에게 함께 헌정된 작품입니다.","query":"","scope":"","to":16,"work":18},{"id":19,"kind":"dedication","note":"","query":"","scope":"","to":16,"work":19},{"id":20,"kind":"dedication","note":"","query":"","scope":"","to":16,"work":20},{"id":21,"kind":"dedication","note":"","query":"","scope":"","to":16,"work":21},{"id":22,"kind":"dedication","note":"","query":"","scope":"","to":16,"work":22},{"id":23,"kind":"dedication","note":"","query":"","scope":"","to":16,"work":23},{"id":24,"kind":"memorial","note":"","query":"","scope":"제6곡","to":16,"work":24},{"id":25,"kind":"dedication","note":"","query":"","scope":"","to":16,"work":25},{"id":26,"kind":"dedication","note":"","query":"","scope":"","to":16,"work":26},{"id":27,"kind":"dedication","note":"","query":"","scope":"","to":16,"work":27},{"id":28,"kind":"dedication","note":"","query":"","scope":"","to":16,"work":28},{"id":29,"kind":"dedication","note":"","query":"","scope":"","to":16,"work":29},{"id":30,"kind":"dedication","note":"","query":"","scope":"","to":16,"work":30},{"id":31,"kind":"dedication","note":"","query":"","scope":"","to":66,"work":31},{"id":32,"kind":"dedication","note":"","query":"","scope":"","to":66,"work":32},{"id":33,"kind":"dedication","note":"","query":"","scope":"","to":66,"work":33},{"id":34,"kind":"dedication","note":"","query":"","scope":"","to":66,"work":34},{"id":35,"kind":"dedication","note":"","query":"","scope":"","to":66,"work":35},{"id":36,"kind":"dedication","note":"","query":"","scope":"","to":66,"work":36},{"id":37,"kind":"dedication","note":"","query":"","scope":"","to":66,"work":37},{"id":38,"kind":"dedication","note":"","query":"","scope":"","to":66,"work":38},{"id":39,"kind":"dedication","note":"","query":"","scope":"","to":66,"work":39},{"id":40,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":40},{"id":41,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":41},{"id":42,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":42},{"id":43,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":43},{"id":44,"kind":"memorial","note":"","query":"","scope":"","to":91,"work":44},{"id":45,"kind":"memorial","note":"","query":"","scope":"","to":91,"work":45},{"id":46,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":46},{"id":47,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":47},{"id":48,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":48},{"id":49,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":49},{"id":50,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":50},{"id":51,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":51},{"id":52,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":52},{"id":53,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":53},{"id":54,"kind":"dedication","note":"","query":"","scope":"제2곡","to":91,"work":54},{"id":55,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":55},{"id":56,"kind":"dedication","note":"같은 작품의 첼로·피아노 원곡은 로베르트 슈만에게, 피아노 네 손 편곡은 클라라 슈만에게 헌정되었습니다.","query":"Moscheles Sonata Op121 piano four hands","scope":"피아노 네 손 편곡","to":149,"work":1},{"id":57,"kind":"dedication","note":"","query":"","scope":"Version B","to":149,"work":56},{"id":58,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":57},{"id":59,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":58},{"id":60,"kind":"dedication","note":"","query":"","scope":"글루크 작품의 편곡","to":149,"work":59},{"id":61,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":60},{"id":62,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":61},{"id":63,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":62},{"id":64,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":63},{"id":65,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":64},{"id":66,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":65},{"id":67,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":66},{"id":68,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":67},{"id":69,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":68},{"id":70,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":69},{"id":71,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":70},{"id":72,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":71},{"id":73,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":72},{"id":74,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":73},{"id":75,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":74},{"id":76,"kind":"dedication","note":"","query":"Schumann Symphony 4 1841 original version","scope":"초기 판본","to":149,"work":75},{"id":77,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":76},{"id":78,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":77},{"id":79,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":78},{"id":80,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":79},{"id":81,"kind":"dedication","note":"","query":"","scope":"","to":149,"work":80},{"id":82,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":81},{"id":83,"kind":"dedication","note":"요제프 요아힘과 첼리스트 로베르트 하우스만에게 함께 헌정되었습니다.","query":"","scope":"","to":76,"work":82},{"id":84,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":83},{"id":85,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":84},{"id":86,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":85},{"id":87,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":86},{"id":88,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":87},{"id":89,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":88},{"id":90,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":89},{"id":91,"kind":"dedication","note":"","query":"","scope":"제1권","to":76,"work":90},{"id":92,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":91},{"id":93,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":92},{"id":94,"kind":"memorial","note":"","query":"","scope":"","to":76,"work":93},{"id":95,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":94},{"id":96,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":95},{"id":97,"kind":"dedication","note":"","query":"Schumann Symphony 4 1851 revised version","scope":"개정 판본","to":76,"work":75},{"id":98,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":96},{"id":99,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":97},{"id":100,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":98},{"id":101,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":99},{"id":102,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":100},{"id":103,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":101},{"id":104,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":102},{"id":105,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":103},{"id":106,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":104},{"id":107,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":105},{"id":108,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":106},{"id":109,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":107},{"id":110,"kind":"dedication","note":"","query":"","scope":"","to":76,"work":108},{"id":111,"kind":"dedication","note":"","query":"","scope":"","to":5,"work":109},{"id":112,"kind":"dedication","note":"","query":"","scope":"","to":5,"work":110},{"id":113,"kind":"dedication","note":"","query":"","scope":"","to":5,"work":111},{"id":114,"kind":"dedication","note":"","query":"","scope":"","to":5,"work":112},{"id":115,"kind":"dedication","note":"","query":"","scope":"","to":5,"work":113},{"id":116,"kind":"dedication","note":"","query":"","scope":"","to":5,"work":114},{"id":117,"kind":"dedication","note":"","query":"","scope":"제1곡","to":50,"work":115},{"id":118,"kind":"dedication","note":"","query":"","scope":"","to":50,"work":116},{"id":119,"kind":"memorial","note":"","query":"","scope":"","to":50,"work":117},{"id":120,"kind":"dedication","note":"","query":"","scope":"","to":50,"work":118},{"id":121,"kind":"dedication","note":"","query":"","scope":"","to":50,"work":119},{"id":122,"kind":"dedication","note":"","query":"","scope":"","to":50,"work":120},{"id":123,"kind":"dedication","note":"","query":"","scope":"","to":50,"work":121},{"id":124,"kind":"dedication","note":"","query":"","scope":"제1곡","to":50,"work":122},{"id":125,"kind":"dedication","note":"","query":"","scope":"","to":50,"work":123},{"id":126,"kind":"dedication","note":"","query":"","scope":"","to":50,"work":124},{"id":127,"kind":"dedication","note":"","query":"","scope":"","to":50,"work":125},{"id":128,"kind":"dedication","note":"","query":"","scope":"","to":50,"work":126},{"id":129,"kind":"dedication","note":"","query":"","scope":"","to":183,"work":127},{"id":130,"kind":"dedication","note":"","query":"","scope":"","to":183,"work":128},{"id":131,"kind":"dedication","note":"","query":"","scope":"","to":183,"work":129},{"id":132,"kind":"dedication","note":"","query":"","scope":"","to":183,"work":130},{"id":133,"kind":"dedication","note":"","query":"","scope":"","to":183,"work":131},{"id":134,"kind":"dedication","note":"","query":"","scope":"","to":183,"work":132},{"id":135,"kind":"dedication","note":"","query":"","scope":"","to":183,"work":133},{"id":136,"kind":"dedication","note":"이자이와 이자이 현악 사중주단에 함께 헌정되었습니다.","query":"","scope":"","to":183,"work":134},{"id":137,"kind":"dedication","note":"","query":"","scope":"","to":183,"work":135},{"id":138,"kind":"dedication","note":"","query":"","scope":"","to":183,"work":136},{"id":139,"kind":"dedication","note":"","query":"","scope":"","to":183,"work":137},{"id":140,"kind":"dedication","note":"","query":"","scope":"","to":183,"work":138},{"id":141,"kind":"dedication","note":"","query":"","scope":"","to":183,"work":139},{"id":142,"kind":"dedication","note":"","query":"","scope":"","to":183,"work":140},{"id":143,"kind":"dedication","note":"","query":"","scope":"","to":183,"work":141},{"id":144,"kind":"dedication","note":"","query":"","scope":"","to":183,"work":142},{"id":145,"kind":"dedication","note":"","query":"","scope":"","to":183,"work":143},{"id":146,"kind":"dedication","note":"","query":"","scope":"","to":141,"work":144},{"id":147,"kind":"dedication","note":"","query":"","scope":"","to":141,"work":145},{"id":148,"kind":"dedication","note":"","query":"","scope":"","to":141,"work":146},{"id":149,"kind":"dedication","note":"","query":"","scope":"","to":141,"work":147},{"id":150,"kind":"dedication","note":"","query":"","scope":"","to":141,"work":148},{"id":151,"kind":"dedication","note":"","query":"","scope":"","to":141,"work":149},{"id":152,"kind":"dedication","note":"","query":"","scope":"","to":141,"work":150},{"id":153,"kind":"dedication","note":"","query":"","scope":"","to":141,"work":151},{"id":154,"kind":"dedication","note":"","query":"","scope":"","to":141,"work":152},{"id":155,"kind":"dedication","note":"출판된 관현악 총보는 사라사테에게, 바이올린·피아노 축약판은 아우구스트 빌헬미에게 헌정되었습니다.","query":"","scope":"관현악 총보","to":141,"work":153},{"id":156,"kind":"dedication","note":"","query":"","scope":"","to":141,"work":154},{"id":157,"kind":"dedication","note":"","query":"","scope":"","to":141,"work":155},{"id":158,"kind":"dedication","note":"","query":"","scope":"","to":141,"work":156},{"id":159,"kind":"dedication","note":"","query":"","scope":"","to":141,"work":157},{"id":160,"kind":"dedication","note":"","query":"","scope":"","to":141,"work":158},{"id":161,"kind":"dedication","note":"","query":"Liszt Sunt lacrymae rerum S163 5","scope":"제5곡","to":24,"work":159},{"id":162,"kind":"dedication","note":"","query":"","scope":"","to":24,"work":160},{"id":163,"kind":"dedication","note":"","query":"","scope":"","to":24,"work":161},{"id":164,"kind":"dedication","note":"","query":"","scope":"","to":24,"work":162},{"id":165,"kind":"dedication","note":"","query":"","scope":"","to":24,"work":163},{"id":166,"kind":"dedication","note":"","query":"","scope":"","to":24,"work":164},{"id":167,"kind":"dedication","note":"","query":"","scope":"","to":24,"work":165},{"id":168,"kind":"dedication","note":"","query":"","scope":"","to":24,"work":166},{"id":169,"kind":"dedication","note":"","query":"","scope":"","to":24,"work":167},{"id":170,"kind":"dedication","note":"","query":"","scope":"","to":24,"work":168},{"id":171,"kind":"dedication","note":"","query":"","scope":"","to":24,"work":169},{"id":172,"kind":"dedication","note":"","query":"","scope":"","to":24,"work":170},{"id":173,"kind":"dedication","note":"","query":"","scope":"제3곡","to":24,"work":171},{"id":174,"kind":"dedication","note":"","query":"","scope":"","to":24,"work":172},{"id":175,"kind":"dedication","note":"","query":"","scope":"","to":24,"work":173},{"id":176,"kind":"dedication","note":"","query":"","scope":"","to":24,"work":174},{"id":177,"kind":"dedication","note":"","query":"","scope":"","to":24,"work":175},{"id":178,"kind":"dedication","note":"","query":"","scope":"","to":24,"work":176},{"id":179,"kind":"dedication","note":"","query":"","scope":"","to":24,"work":177},{"id":180,"kind":"dedication","note":"","query":"","scope":"","to":24,"work":178},{"id":181,"kind":"dedication","note":"","query":"","scope":"","to":140,"work":179},{"id":182,"kind":"dedication","note":"","query":"","scope":"","to":140,"work":180},{"id":183,"kind":"dedication","note":"","query":"","scope":"","to":140,"work":181},{"id":184,"kind":"dedication","note":"","query":"","scope":"","to":140,"work":182},{"id":185,"kind":"dedication","note":"","query":"","scope":"제3곡","to":140,"work":183},{"id":186,"kind":"dedication","note":"","query":"","scope":"","to":140,"work":184},{"id":187,"kind":"dedication","note":"","query":"","scope":"","to":140,"work":185},{"id":188,"kind":"dedication","note":"","query":"","scope":"","to":140,"work":186},{"id":189,"kind":"dedication","note":"","query":"","scope":"","to":140,"work":187},{"id":190,"kind":"dedication","note":"","query":"","scope":"","to":140,"work":188},{"id":191,"kind":"dedication","note":"","query":"","scope":"","to":140,"work":189},{"id":192,"kind":"dedication","note":"","query":"","scope":"","to":140,"work":190},{"id":193,"kind":"dedication","note":"","query":"","scope":"제4곡","to":140,"work":171},{"id":194,"kind":"dedication","note":"","query":"","scope":"제5곡","to":140,"work":191},{"id":195,"kind":"dedication","note":"","query":"","scope":"","to":140,"work":192},{"id":196,"kind":"dedication","note":"","query":"","scope":"","to":140,"work":193},{"id":197,"kind":"dedication","note":"","query":"","scope":"","to":140,"work":194},{"id":198,"kind":"memorial","note":"","query":"","scope":"","to":167,"work":195},{"id":199,"kind":"memorial","note":"차이콥스키·글린카와 시인 푸시킨을 함께 기리는 오페라입니다.","query":"","scope":"","to":167,"work":196},{"id":200,"kind":"dedication","note":"","query":"","scope":"","to":167,"work":197},{"id":201,"kind":"memorial","note":"","query":"","scope":"","to":167,"work":198},{"id":202,"kind":"dedication","note":"","query":"","scope":"","to":167,"work":199},{"id":203,"kind":"dedication","note":"","query":"","scope":"","to":167,"work":200},{"id":204,"kind":"memorial","note":"","query":"","scope":"","to":167,"work":201},{"id":205,"kind":"dedication","note":"","query":"","scope":"","to":124,"work":202},{"id":206,"kind":"dedication","note":"","query":"","scope":"","to":124,"work":203},{"id":207,"kind":"dedication","note":"","query":"","scope":"","to":124,"work":204},{"id":208,"kind":"dedication","note":"","query":"","scope":"","to":174,"work":205},{"id":209,"kind":"memorial","note":"","query":"","scope":"","to":174,"work":206},{"id":210,"kind":"memorial","note":"","query":"","scope":"","to":174,"work":207},{"id":211,"kind":"dedication","note":"","query":"","scope":"","to":174,"work":208},{"id":212,"kind":"dedication","note":"","query":"","scope":"","to":102,"work":209},{"id":213,"kind":"dedication","note":"","query":"","scope":"","to":102,"work":210},{"id":214,"kind":"dedication","note":"","query":"","scope":"","to":102,"work":211},{"id":215,"kind":"dedication","note":"","query":"","scope":"","to":102,"work":212},{"id":216,"kind":"dedication","note":"","query":"","scope":"","to":102,"work":213},{"id":217,"kind":"dedication","note":"","query":"","scope":"","to":102,"work":214},{"id":218,"kind":"dedication","note":"","query":"","scope":"","to":102,"work":215},{"id":219,"kind":"dedication","note":"","query":"","scope":"","to":102,"work":216},{"id":220,"kind":"dedication","note":"","query":"","scope":"","to":102,"work":217},{"id":221,"kind":"dedication","note":"","query":"","scope":"","to":102,"work":218},{"id":222,"kind":"dedication","note":"","query":"","scope":"","to":35,"work":219},{"id":223,"kind":"dedication","note":"","query":"","scope":"","to":35,"work":220},{"id":224,"kind":"dedication","note":"","query":"","scope":"","to":35,"work":221},{"id":225,"kind":"dedication","note":"영국 Wessel 판의 헌정 대상입니다. 다른 초기 판본은 티투스 보이치에호프스키에게 헌정되었습니다.","query":"","scope":"영국 Wessel 판","to":35,"work":222},{"id":226,"kind":"dedication","note":"","query":"","scope":"","to":9,"work":223},{"id":227,"kind":"dedication","note":"","query":"","scope":"","to":9,"work":224},{"id":228,"kind":"dedication","note":"","query":"","scope":"제6곡","to":9,"work":225},{"id":229,"kind":"dedication","note":"","query":"","scope":"","to":9,"work":226},{"id":230,"kind":"dedication","note":"","query":"","scope":"제2곡","to":86,"work":227},{"id":231,"kind":"dedication","note":"","query":"","scope":"","to":86,"work":228},{"id":232,"kind":"dedication","note":"이 지도는 출판 악보의 헌정 대상인 로돌프 크로이처를 연결합니다. 초기에는 조지 브리지타워에게 바쳤습니다.","query":"","scope":"출판 헌정","to":86,"work":229},{"id":233,"kind":"dedication","note":"","query":"","scope":"","to":112,"work":230},{"id":234,"kind":"dedication","note":"","query":"","scope":"","to":112,"work":231},{"id":235,"kind":"dedication","note":"","query":"","scope":"","to":112,"work":232},{"id":236,"kind":"dedication","note":"","query":"","scope":"","to":112,"work":233},{"id":237,"kind":"dedication","note":"","query":"","scope":"","to":112,"work":234},{"id":238,"kind":"dedication","note":"","query":"","scope":"","to":112,"work":235},{"id":239,"kind":"dedication","note":"","query":"","scope":"","to":179,"work":236},{"id":240,"kind":"dedication","note":"","query":"","scope":"","to":179,"work":237},{"id":241,"kind":"dedication","note":"","query":"","scope":"","to":179,"work":238},{"id":242,"kind":"dedication","note":"","query":"","scope":"","to":179,"work":239},{"id":243,"kind":"dedication","note":"","query":"","scope":"","to":179,"work":240},{"id":244,"kind":"dedication","note":"","query":"","scope":"","to":179,"work":241},{"id":245,"kind":"dedication","note":"","query":"","scope":"","to":179,"work":242},{"id":246,"kind":"dedication","note":"","query":"","scope":"","to":179,"work":243},{"id":247,"kind":"dedication","note":"","query":"","scope":"","to":101,"work":244},{"id":248,"kind":"memorial","note":"","query":"","scope":"","to":37,"work":245},{"id":249,"kind":"dedication","note":"","query":"","scope":"제1곡","to":37,"work":246},{"id":250,"kind":"memorial","note":"","query":"","scope":"","to":37,"work":247},{"id":251,"kind":"memorial","note":"","query":"","scope":"","to":37,"work":248},{"id":252,"kind":"memorial","note":"","query":"","scope":"제7곡","to":37,"work":249},{"id":253,"kind":"memorial","note":"","query":"","scope":"제1곡","to":37,"work":250},{"id":254,"kind":"dedication","note":"","query":"","scope":"제1곡","to":37,"work":251},{"id":255,"kind":"memorial","note":"","query":"","scope":"","to":37,"work":252},{"id":256,"kind":"dedication","note":"","query":"","scope":"","to":37,"work":253},{"id":257,"kind":"memorial","note":"","query":"","scope":"","to":37,"work":254},{"id":258,"kind":"memorial","note":"","query":"","scope":"","to":37,"work":255},{"id":259,"kind":"dedication","note":"","query":"","scope":"","to":126,"work":256},{"id":260,"kind":"dedication","note":"","query":"","scope":"제3곡","to":126,"work":257},{"id":261,"kind":"dedication","note":"","query":"","scope":"제6곡","to":126,"work":258},{"id":262,"kind":"dedication","note":"","query":"","scope":"제2곡","to":126,"work":259},{"id":263,"kind":"dedication","note":"","query":"","scope":"제3곡","to":126,"work":260},{"id":264,"kind":"homage","note":"","query":"","scope":"‘네 개의 전주곡’ 중 제2곡","to":126,"work":261},{"id":265,"kind":"dedication","note":"","query":"","scope":"","to":126,"work":262},{"id":266,"kind":"dedication","note":"","query":"","scope":"","to":126,"work":263},{"id":267,"kind":"dedication","note":"","query":"","scope":"","to":147,"work":264},{"id":268,"kind":"dedication","note":"","query":"","scope":"","to":147,"work":265},{"id":269,"kind":"dedication","note":"","query":"","scope":"","to":147,"work":266},{"id":270,"kind":"dedication","note":"","query":"","scope":"","to":147,"work":267},{"id":271,"kind":"dedication","note":"","query":"","scope":"제3곡","to":162,"work":268},{"id":272,"kind":"dedication","note":"","query":"","scope":"","to":162,"work":269},{"id":273,"kind":"dedication","note":"","query":"","scope":"제1곡","to":162,"work":258},{"id":274,"kind":"dedication","note":"","query":"","scope":"제1곡","to":162,"work":270},{"id":275,"kind":"dedication","note":"","query":"","scope":"","to":162,"work":271},{"id":276,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":272},{"id":277,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":273},{"id":278,"kind":"dedication","note":"리스트에게 헌정된 협주곡입니다. 작곡과 초연은 리스트 생전에 이루어졌습니다.","query":"","scope":"","to":91,"work":274},{"id":279,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":275},{"id":280,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":276},{"id":281,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":277},{"id":282,"kind":"dedication","note":"작곡가 소장본과 출판본의 헌정 대상이 다릅니다. 여기서는 리스트에게 바친 Haslinger 판을 연결합니다.","query":"","scope":"Haslinger 출판 판본","to":91,"work":278},{"id":283,"kind":"memorial","note":"","query":"","scope":"","to":91,"work":279},{"id":284,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":280},{"id":285,"kind":"memorial","note":"","query":"","scope":"","to":91,"work":281},{"id":286,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":282},{"id":287,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":283},{"id":288,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":284},{"id":289,"kind":"dedication","note":"","query":"","scope":"","to":16,"work":285},{"id":290,"kind":"dedication","note":"","query":"","scope":"","to":16,"work":286},{"id":291,"kind":"dedication","note":"","query":"","scope":"","to":16,"work":287},{"id":292,"kind":"dedication","note":"","query":"","scope":"","to":16,"work":288},{"id":293,"kind":"dedication","note":"","query":"","scope":"","to":16,"work":289},{"id":294,"kind":"dedication","note":"","query":"","scope":"","to":16,"work":290},{"id":295,"kind":"dedication","note":"","query":"","scope":"","to":16,"work":291},{"id":296,"kind":"dedication","note":"","query":"","scope":"","to":16,"work":292},{"id":297,"kind":"memorial","note":"","query":"","scope":"","to":66,"work":293},{"id":298,"kind":"dedication","note":"","query":"","scope":"","to":66,"work":294},{"id":299,"kind":"dedication","note":"","query":"","scope":"","to":66,"work":295},{"id":300,"kind":"dedication","note":"","query":"","scope":"","to":66,"work":296},{"id":301,"kind":"dedication","note":"","query":"","scope":"","to":66,"work":297},{"id":302,"kind":"dedication","note":"","query":"","scope":"","to":66,"work":298},{"id":303,"kind":"dedication","note":"","query":"","scope":"","to":66,"work":299},{"id":304,"kind":"dedication","note":"","query":"","scope":"","to":66,"work":300},{"id":305,"kind":"dedication","note":"","query":"","scope":"","to":66,"work":301},{"id":306,"kind":"dedication","note":"","query":"","scope":"","to":91,"work":302},{"id":307,"kind":"dedication","note":"","query":"","scope":"","to":115,"work":303},{"id":308,"kind":"dedication","note":"","query":"","scope":"","to":79,"work":304},{"id":309,"kind":"dedication","note":"","query":"","scope":"","to":51,"work":305},{"id":310,"kind":"dedication","note":"","query":"","scope":"","to":47,"work":306},{"id":311,"kind":"dedication","note":"","query":"","scope":"프랑스 판본","to":118,"work":307},{"id":312,"kind":"dedication","note":"","query":"","scope":"","to":98,"work":308},{"id":313,"kind":"dedication","note":"","query":"","scope":"","to":155,"work":309},{"id":314,"kind":"dedication","note":"","query":"","scope":"","to":71,"work":310},{"id":315,"kind":"dedication","note":"","query":"","scope":"","to":17,"work":311},{"id":316,"kind":"dedication","note":"유진 오먼디와 필라델피아 오케스트라에게 함께 헌정되었습니다.","query":"","scope":"","to":113,"work":312},{"id":317,"kind":"dedication","note":"출판 악보에 표시된 헌정 대상인 아돌프 브로드스키를 연결했습니다.","query":"","scope":"출판 헌정","to":19,"work":313},{"id":318,"kind":"dedication","note":"","query":"","scope":"","to":138,"work":314},{"id":319,"kind":"memorial","note":"","query":"","scope":"","to":138,"work":315},{"id":320,"kind":"dedication","note":"","query":"","scope":"","to":134,"work":316},{"id":321,"kind":"dedication","note":"","query":"","scope":"","to":134,"work":317},{"id":322,"kind":"dedication","note":"","query":"","scope":"","to":18,"work":318},{"id":323,"kind":"dedication","note":"","query":"","scope":"","to":134,"work":319},{"id":324,"kind":"dedication","note":"","query":"","scope":"","to":92,"work":320},{"id":325,"kind":"dedication","note":"","query":"","scope":"","to":42,"work":321},{"id":326,"kind":"dedication","note":"","query":"","scope":"","to":41,"work":322},{"id":327,"kind":"dedication","note":"바이올리니스트 요제프 요아힘과 공동 헌정입니다.","query":"","scope":"","to":65,"work":82},{"id":328,"kind":"dedication","note":"","query":"","scope":"제2곡","to":103,"work":115},{"id":329,"kind":"dedication","note":"","query":"","scope":"제3곡","to":39,"work":115},{"id":330,"kind":"dedication","note":"","query":"","scope":"제2곡","to":122,"work":122},{"id":331,"kind":"dedication","note":"","query":"","scope":"제3곡","to":36,"work":122},{"id":332,"kind":"dedication","note":"출판된 관현악 총보는 사라사테에게, 바이올린·피아노 축약판은 아우구스트 빌헬미에게 헌정되었습니다.","query":"","scope":"바이올린·피아노 축약판","to":178,"work":153},{"id":333,"kind":"dedication","note":"","query":"","scope":"제1곡","to":87,"work":171},{"id":334,"kind":"dedication","note":"","query":"","scope":"제2곡","to":154,"work":171},{"id":335,"kind":"dedication","note":"","query":"","scope":"제5곡","to":81,"work":171},{"id":336,"kind":"dedication","note":"","query":"","scope":"제6곡","to":2,"work":171},{"id":337,"kind":"dedication","note":"","query":"","scope":"제4곡","to":10,"work":191},{"id":338,"kind":"memorial","note":"글린카·차이콥스키와 시인 푸시킨을 함께 기리는 오페라입니다.","query":"","scope":"","to":58,"work":196},{"id":339,"kind":"dedication","note":"","query":"","scope":"제2곡","to":41,"work":246},{"id":340,"kind":"dedication","note":"","query":"","scope":"제3곡","to":135,"work":246},{"id":341,"kind":"dedication","note":"","query":"","scope":"제2곡","to":32,"work":250},{"id":342,"kind":"dedication","note":"","query":"","scope":"제3곡","to":117,"work":258},{"id":343,"kind":"dedication","note":"","query":"","scope":"제5곡","to":145,"work":258},{"id":344,"kind":"dedication","note":"","query":"","scope":"제9곡","to":96,"work":258},{"id":345,"kind":"dedication","note":"","query":"","scope":"제1곡","to":139,"work":259},{"id":346,"kind":"dedication","note":"","query":"","scope":"제3곡","to":173,"work":259},{"id":347,"kind":"dedication","note":"","query":"","scope":"제1곡","to":38,"work":260},{"id":348,"kind":"dedication","note":"","query":"","scope":"제2곡","to":145,"work":260},{"id":349,"kind":"dedication","note":"","query":"","scope":"제1곡","to":84,"work":268},{"id":350,"kind":"dedication","note":"","query":"","scope":"제2곡","to":145,"work":270},{"id":351,"kind":"dedication","note":"","query":"","scope":"제3곡","to":142,"work":270},{"id":352,"kind":"dedication","note":"","query":"","scope":"독일 판본","to":80,"work":307},{"id":353,"kind":"dedication","note":"","query":"","scope":"","to":164,"work":323},{"id":354,"kind":"dedication","note":"","query":"","scope":"","to":169,"work":324},{"id":355,"kind":"dedication","note":"","query":"","scope":"","to":48,"work":325},{"id":356,"kind":"dedication","note":"","query":"","scope":"","to":85,"work":326},{"id":357,"kind":"dedication","note":"","query":"","scope":"","to":34,"work":327},{"id":358,"kind":"dedication","note":"","query":"","scope":"","to":123,"work":328},{"id":359,"kind":"memorial","note":"","query":"","scope":"","to":182,"work":329},{"id":360,"kind":"memorial","note":"","query":"","scope":"","to":130,"work":330},{"id":361,"kind":"memorial","note":"","query":"","scope":"","to":20,"work":331},{"id":362,"kind":"homage","note":"","query":"","scope":"","to":120,"work":332},{"id":363,"kind":"homage","note":"","query":"","scope":"","to":27,"work":333},{"id":364,"kind":"memorial","note":"발표 아티스트에서 기리는 음악가로 연결했습니다.","query":"","scope":"","to":89,"work":334},{"id":365,"kind":"memorial","note":"발표 아티스트에서 기리는 음악가로 연결했습니다.","query":"","scope":"","to":89,"work":335},{"id":366,"kind":"memorial","note":"발표 아티스트에서 기리는 음악가로 연결했습니다.","query":"","scope":"","to":64,"work":336},{"id":367,"kind":"memorial","note":"발표 아티스트에서 기리는 음악가로 연결했습니다.","query":"","scope":"","to":89,"work":337},{"id":368,"kind":"memorial","note":"발표 아티스트에서 기리는 음악가로 연결했습니다.","query":"","scope":"","to":89,"work":338},{"id":369,"kind":"memorial","note":"발표 아티스트에서 기리는 음악가로 연결했습니다.","query":"","scope":"","to":89,"work":339},{"id":370,"kind":"homage","note":"발표 아티스트에서 기리는 음악가로 연결했습니다.","query":"","scope":"","to":63,"work":340},{"id":371,"kind":"homage","note":"발표 아티스트에서 기리는 음악가로 연결했습니다.","query":"","scope":"","to":45,"work":341},{"id":372,"kind":"homage","note":"발표 아티스트에서 기리는 음악가로 연결했습니다.","query":"","scope":"","to":97,"work":342}],"version":"2026-09-13","works":[{"from":29,"genre":"classical","id":0,"ko":"발라드 2번, Op.38","source":"https://imslp.org/wiki/Ballade_No.2,_Op.38_(Chopin,_Fr%C3%A9d%C3%A9ric)","title":"Ballade No.2, Op.38","video":"hAKSaYqaUEs","videoLabel":"올가 셰프스"},{"from":107,"genre":"classical","id":1,"ko":"","source":"https://imslp.org/wiki/Cello_Sonata,_Op.121_(Moscheles,_Ignaz)","title":"Cello Sonata, Op.121","video":"","videoLabel":""},{"from":6,"genre":"classical","id":2,"ko":"","source":"https://imslp.org/wiki/Fantaisie,_Op.16_(Bennett,_William_Sterndale)","title":"Fantaisie, Op.16","video":"","videoLabel":""},{"from":91,"genre":"classical","id":3,"ko":"피아노 소나타 B단조, S.178","source":"https://imslp.org/wiki/Piano_Sonata_in_B_minor,_S.178_(Liszt,_Franz)","title":"Piano Sonata in B minor, S.178","video":"TKoAN426YAo","videoLabel":"크리스티안 지메르만"},{"from":3,"genre":"classical","id":4,"ko":"","source":"https://imslp.org/wiki/Piano_Trio_No.1,_Op.6_(Bargiel,_Woldemar)","title":"Piano Trio No.1, Op.6","video":"","videoLabel":""},{"from":129,"genre":"classical","id":5,"ko":"","source":"https://imslp.org/wiki/Piano_Trio_No.1,_Op.38_(Reinecke,_Carl)","title":"Piano Trio No.1, Op.38","video":"","videoLabel":""},{"from":149,"genre":"classical","id":6,"ko":"","source":"https://imslp.org/wiki/Prelude_and_Fugue_in_F-sharp_minor_(Schumann,_Clara)","title":"Prelude and Fugue in F-sharp minor","video":"","videoLabel":""},{"from":149,"genre":"classical","id":7,"ko":"","source":"https://imslp.org/wiki/Romance_vari%C3%A9e,_Op.3_(Schumann,_Clara)","title":"Romance variée, Op.3","video":"","videoLabel":""},{"from":149,"genre":"classical","id":8,"ko":"","source":"https://imslp.org/wiki/3_Romances,_Op.11_(Schumann,_Clara)","title":"3 Romances, Op.11","video":"","videoLabel":""},{"from":68,"genre":"classical","id":9,"ko":"","source":"https://imslp.org/wiki/Scherzo,_Op.9_(Henselt,_Adolf_von)","title":"Scherzo, Op.9","video":"","videoLabel":""},{"from":149,"genre":"classical","id":10,"ko":"","source":"https://imslp.org/wiki/Variationen_%C3%BCber_ein_Thema_von_Robert_Schumann,_Op.20_(Schumann,_Clara)","title":"Variationen über ein Thema von Robert Schumann, Op.20","video":"","videoLabel":""},{"from":55,"genre":"classical","id":11,"ko":"","source":"https://imslp.org/wiki/Violin_Sonata_No.2,_Op.21_(Gade,_Niels)","title":"Violin Sonata No.2, Op.21","video":"","videoLabel":""},{"from":70,"genre":"classical","id":12,"ko":"","source":"https://imslp.org/wiki/3_Caprices,_Op.14_(Hiller,_Ferdinand)","title":"3 Caprices, Op.14","video":"","videoLabel":""},{"from":79,"genre":"classical","id":13,"ko":"","source":"https://imslp.org/wiki/Causerie_de_jeune_fille,_Op.128_No.3_(Kalkbrenner,_Friedrich_Wilhelm)","title":"Causerie de jeune fille, Op.128 No.3","video":"","videoLabel":""},{"from":37,"genre":"classical","id":14,"ko":"연습곡, CD 143","source":"https://imslp.org/wiki/Etudes,_CD_143_(Debussy,_Claude)","title":"Etudes, CD 143","video":"","videoLabel":""},{"from":151,"genre":"classical","id":15,"ko":"크라이슬레리아나, Op.16","source":"https://imslp.org/wiki/Kreisleriana,_Op.16_(Schumann,_Robert)","title":"Kreisleriana, Op.16","video":"BdHH5DjYCk4","videoLabel":"안드라스 시프"},{"from":35,"genre":"classical","id":16,"ko":"","source":"https://imslp.org/wiki/8_Scherzi_capricciosi,_Op.555_(Czerny,_Carl)","title":"8 Scherzi capricciosi, Op.555","video":"","videoLabel":""},{"from":93,"genre":"classical","id":17,"ko":"","source":"https://imslp.org/wiki/%C5%BBelazowa_Wola,_Op.37_(Lyapunov,_Sergey)","title":"Żelazowa Wola, Op.37","video":"","videoLabel":""},{"from":129,"genre":"classical","id":18,"ko":"","source":"https://imslp.org/wiki/Cello_Sonata_No.3,_Op.238_(Reinecke,_Carl)","title":"Cello Sonata No.3, Op.238","video":"","videoLabel":""},{"from":111,"genre":"classical","id":19,"ko":"","source":"https://imslp.org/wiki/Eklogen,_Op.11_(Nov%C3%A1k,_V%C3%ADt%C4%9Bzslav)","title":"Eklogen, Op.11","video":"","videoLabel":""},{"from":23,"genre":"classical","id":20,"ko":"","source":"https://imslp.org/wiki/%C3%89tude_en_forme_de_variations,_Op.17,_BV_206_(Busoni,_Ferruccio)","title":"Étude en forme de variations, Op.17, BV 206","video":"","videoLabel":""},{"from":23,"genre":"classical","id":21,"ko":"","source":"https://imslp.org/wiki/6_%C3%89tudes,_Op.16,_BV_203_(Busoni,_Ferruccio)","title":"6 Études, Op.16, BV 203","video":"","videoLabel":""},{"from":3,"genre":"classical","id":22,"ko":"","source":"https://imslp.org/wiki/Fantasy_No.3,_Op.19_(Bargiel,_Woldemar)","title":"Fantasy No.3, Op.19","video":"","videoLabel":""},{"from":151,"genre":"classical","id":23,"ko":"","source":"https://imslp.org/wiki/Introduction_and_Allegro,_Op.134_(Schumann,_Robert)","title":"Introduction and Allegro, Op.134","video":"","videoLabel":""},{"from":127,"genre":"classical","id":24,"ko":"여섯 개의 피아노 소품, Op.24","source":"https://imslp.org/wiki/6_Klavierst%C3%BCcke,_Op.24_(Reger,_Max)","title":"6 Klavierstücke, Op.24","video":"","videoLabel":""},{"from":69,"genre":"classical","id":25,"ko":"","source":"https://imslp.org/wiki/Piano_Quartet_No.2,_Op.95_(Herzogenberg,_Heinrich_von)","title":"Piano Quartet No.2, Op.95","video":"","videoLabel":""},{"from":59,"genre":"classical","id":26,"ko":"","source":"https://imslp.org/wiki/Piano_Quartet,_Op.6_(Goetz,_Hermann)","title":"Piano Quartet, Op.6","video":"","videoLabel":""},{"from":163,"genre":"classical","id":27,"ko":"","source":"https://imslp.org/wiki/Piano_Quintet,_Op.8_(Suk,_Josef)","title":"Piano Quintet, Op.8","video":"","videoLabel":""},{"from":54,"genre":"classical","id":28,"ko":"","source":"https://imslp.org/wiki/Piano_Trio_No.1,_Op.22_(Fuchs,_Robert)","title":"Piano Trio No.1, Op.22","video":"","videoLabel":""},{"from":143,"genre":"classical","id":29,"ko":"","source":"https://imslp.org/wiki/4_Romanzero_St%C3%BCcke,_Op.33_(Scharwenka,_Xaver)","title":"4 Romanzero Stücke, Op.33","video":"","videoLabel":""},{"from":151,"genre":"classical","id":30,"ko":"","source":"https://imslp.org/wiki/Des_S%C3%A4ngers_Fluch,_Op.139_(Schumann,_Robert)","title":"Des Sängers Fluch, Op.139","video":"","videoLabel":""},{"from":128,"genre":"classical","id":31,"ko":"피아노를 위한 36개의 푸가, Op.36","source":"https://imslp.org/wiki/36_Fugues_pour_Piano,_Op.36_(Reicha,_Anton)","title":"36 Fugues pour Piano, Op.36","video":"","videoLabel":""},{"from":43,"genre":"classical","id":32,"ko":"","source":"https://imslp.org/wiki/3_Keyboard_Sonatas,_Op.17_(Dussek,_Jan_Ladislav)","title":"3 Keyboard Sonatas, Op.17","video":"","videoLabel":""},{"from":5,"genre":"classical","id":33,"ko":"","source":"https://en.wikipedia.org/wiki/Piano_Sonata_No._1_(Beethoven)","title":"Piano Sonata No.1, Op.2 No.1","video":"","videoLabel":""},{"from":5,"genre":"classical","id":34,"ko":"","source":"https://en.wikipedia.org/wiki/Piano_Sonata_No._2_(Beethoven)","title":"Piano Sonata No.2, Op.2 No.2","video":"","videoLabel":""},{"from":74,"genre":"classical","id":35,"ko":"","source":"https://imslp.org/wiki/Piano_Sonata_No.2,_Op.13_(Hummel,_Johann_Nepomuk)","title":"Piano Sonata No.2, Op.13","video":"","videoLabel":""},{"from":5,"genre":"classical","id":36,"ko":"","source":"https://imslp.org/wiki/Piano_Sonata_No.3,_Op.2_No.3_(Beethoven,_Ludwig_van)","title":"Piano Sonata No.3, Op.2 No.3","video":"","videoLabel":""},{"from":79,"genre":"classical","id":37,"ko":"","source":"https://imslp.org/wiki/Piano_Sonata,_Op.56_(Kalkbrenner,_Friedrich_Wilhelm)","title":"Piano Sonata, Op.56","video":"","videoLabel":""},{"from":131,"genre":"classical","id":38,"ko":"","source":"https://imslp.org/wiki/2_Piano_Sonatas,_Op.11_(Ries,_Ferdinand)","title":"2 Piano Sonatas, Op.11","video":"","videoLabel":""},{"from":180,"genre":"classical","id":39,"ko":"","source":"https://imslp.org/wiki/3_Piano_Trios,_Op.5_(Woelfl,_Joseph)","title":"3 Piano Trios, Op.5","video":"","videoLabel":""},{"from":160,"genre":"classical","id":40,"ko":"","source":"https://imslp.org/wiki/Abschieds-Rufe_Walzer,_Op.179_(Strauss_Jr.,_Johann)","title":"Abschieds-Rufe Walzer, Op.179","video":"","videoLabel":""},{"from":31,"genre":"classical","id":41,"ko":"바그다드의 이발사","source":"https://imslp.org/wiki/Der_Barbier_von_Bagdad_(Cornelius,_Peter)","title":"Der Barbier von Bagdad","video":"","videoLabel":""},{"from":156,"genre":"classical","id":42,"ko":"여섯 개의 성격 소품, Op.1","source":"https://imslp.org/wiki/6_Characteristic_Pieces,_Op.1_(Smetana,_Bed%C5%99ich)","title":"6 Characteristic Pieces, Op.1","video":"","videoLabel":""},{"from":125,"genre":"classical","id":43,"ko":"","source":"https://imslp.org/wiki/De_profundis,_Op.141_(Raff,_Joachim)","title":"De profundis, Op.141","video":"","videoLabel":""},{"from":57,"genre":"classical","id":44,"ko":"비가, Op.17","source":"https://imslp.org/wiki/Elegy,_Op.17_(Glazunov,_Aleksandr)","title":"Elegy, Op.17","video":"","videoLabel":""},{"from":93,"genre":"classical","id":45,"ko":"12개의 초절기교 연습곡, Op.11","source":"https://imslp.org/wiki/12_%C3%89tudes_d'ex%C3%A9cution_transcendante,_Op.11_(Lyapunov,_Sergey)","title":"12 Études d'exécution transcendante, Op.11","video":"","videoLabel":""},{"from":29,"genre":"classical","id":46,"ko":"연습곡, Op.10","source":"https://chopin.nifc.pl/en/chopin/gatunki/9_etiudy","title":"Études, Op.10","video":"id5so24Wltw","videoLabel":"프랑수아 르네 뒤샤블 · Op.10 전곡"},{"from":151,"genre":"classical","id":47,"ko":"환상곡, Op.17","source":"https://imslp.org/wiki/Fantasie,_Op.17_(Schumann,_Robert)","title":"Fantasie, Op.17","video":"XZ7hE4lQAYs","videoLabel":"레이프 오베 안스네스"},{"from":62,"genre":"classical","id":48,"ko":"","source":"https://imslp.org/wiki/Foran_Sydens_kloster,_Op.20_(Grieg,_Edvard)","title":"Foran Sydens kloster, Op.20","video":"","videoLabel":""},{"from":146,"genre":"classical","id":49,"ko":"","source":"https://imslp.org/wiki/Grand_Concerto,_Op.300_(Schmitt,_Jacob)","title":"Grand Concerto, Op.300","video":"","videoLabel":""},{"from":33,"genre":"classical","id":50,"ko":"","source":"https://imslp.org/wiki/Impromptu_in_D-flat_major,_Op.93_(Cramer,_Johann_Baptist)","title":"Impromptu in D-flat major, Op.93","video":"","videoLabel":""},{"from":13,"genre":"classical","id":51,"ko":"중앙아시아의 초원에서","source":"https://imslp.org/wiki/In_the_Steppes_of_Central_Asia_(Borodin,_Aleksandr)","title":"In the Steppes of Central Asia","video":"","videoLabel":""},{"from":99,"genre":"classical","id":52,"ko":"","source":"https://imslp.org/wiki/Marche_h%C3%A9ro%C3%AFque_de_Szabadi_(Massenet,_Jules)","title":"Marche héroïque de Szabadi","video":"","videoLabel":""},{"from":0,"genre":"classical","id":53,"ko":"비창적 양식의 세 곡, Op.15","source":"https://imslp.org/wiki/3_Morceaux_dans_le_Genre_path%C3%A9tique,_Op.15_(Alkan,_Charles-Valentin)","title":"3 Morceaux dans le Genre pathétique, Op.15","video":"","videoLabel":""},{"from":137,"genre":"classical","id":54,"ko":"","source":"https://imslp.org/wiki/Musikalische_Bilder_from_Wagner's_Parsifal_(Rubinstein,_Joseph)","title":"Musikalische Bilder from Wagner's Parsifal","video":"","videoLabel":""},{"from":16,"genre":"classical","id":55,"ko":"","source":"https://imslp.org/wiki/Albumblatt_f%C3%BCr_Clara_Schumann_(Brahms,_Johannes)","title":"Albumblatt für Clara Schumann","video":"","videoLabel":""},{"from":151,"genre":"classical","id":56,"ko":"","source":"https://imslp.org/wiki/Etudes_in_Variation_Form_on_a_Theme_by_Beethoven,_WoO_31_(Schumann,_Robert)","title":"Etudes in Variation Form on a Theme by Beethoven, WoO 31","video":"","videoLabel":""},{"from":3,"genre":"classical","id":57,"ko":"","source":"https://imslp.org/wiki/3_Fantasiest%C3%BCcke,_Op.9_(Bargiel,_Woldemar)","title":"3 Fantasiestücke, Op.9","video":"","videoLabel":""},{"from":21,"genre":"classical","id":58,"ko":"","source":"https://imslp.org/wiki/Frithjof,_Op.23_(Bruch,_Max)","title":"Frithjof, Op.23","video":"","videoLabel":""},{"from":16,"genre":"classical","id":59,"ko":"글루크의 가보트 편곡","source":"https://imslp.org/wiki/Gavotte_von_Christ._W._Gluck_(Brahms,_Johannes)","title":"Gavotte von Christ. W. Gluck","video":"","videoLabel":""},{"from":91,"genre":"classical","id":60,"ko":"파가니니 대연습곡, S.141","source":"https://www.breitkopf.com/en/work/4045/grandes-etudes-de-paganini","title":"Grandes études de Paganini, S.141","video":"cIxGUAnj46U","videoLabel":"제3곡 ‘라 캄파넬라’ · 랑랑"},{"from":151,"genre":"classical","id":61,"ko":"","source":"https://imslp.org/wiki/Hermann_und_Dorothea,_Op.136_(Schumann,_Robert)","title":"Hermann und Dorothea, Op.136","video":"","videoLabel":""},{"from":69,"genre":"classical","id":62,"ko":"","source":"https://imslp.org/wiki/Klavierst%C3%BCcke,_Op.68_(Herzogenberg,_Heinrich_von)","title":"Klavierstücke, Op.68","video":"","videoLabel":""},{"from":16,"genre":"classical","id":63,"ko":"여섯 개의 피아노 소품, Op.118","source":"https://imslp.org/wiki/6_Klavierst%C3%BCcke,_Op.118_(Brahms,_Johannes)","title":"6 Klavierstücke, Op.118","video":"","videoLabel":""},{"from":102,"genre":"classical","id":64,"ko":"무언가, Op.62","source":"https://imslp.org/wiki/Lieder_ohne_Worte,_Op.62_(Mendelssohn,_Felix)","title":"Lieder ohne Worte, Op.62","video":"","videoLabel":""},{"from":151,"genre":"classical","id":65,"ko":"미르테의 꽃, Op.25","source":"https://imslp.org/wiki/Myrthen,_Op.25_(Schumann,_Robert)","title":"Myrthen, Op.25","video":"wt2XqrS2RCA","videoLabel":"도로테아 뢰슈만·이언 보스트리지·그레이엄 존슨"},{"from":151,"genre":"classical","id":66,"ko":"피아노 오중주, Op.44","source":"https://imslp.org/wiki/Piano_Quintet,_Op.44_(Schumann,_Robert)","title":"Piano Quintet, Op.44","video":"","videoLabel":""},{"from":151,"genre":"classical","id":67,"ko":"","source":"https://imslp.org/wiki/Piano_Sonata_No.1,_Op.11_(Schumann,_Robert)","title":"Piano Sonata No.1, Op.11","video":"","videoLabel":""},{"from":16,"genre":"classical","id":68,"ko":"","source":"https://imslp.org/wiki/Piano_Sonata_No.2,_Op.2_(Brahms,_Johannes)","title":"Piano Sonata No.2, Op.2","video":"","videoLabel":""},{"from":16,"genre":"classical","id":69,"ko":"","source":"https://imslp.org/wiki/Prelude_and_Fugue,_WoO_9_(Brahms,_Johannes)","title":"Prelude and Fugue, WoO 9","video":"","videoLabel":""},{"from":136,"genre":"classical","id":70,"ko":"","source":"https://imslp.org/wiki/6_Preludes,_Op.24_(Rubinstein,_Anton)","title":"6 Preludes, Op.24","video":"","videoLabel":""},{"from":115,"genre":"classical","id":71,"ko":"","source":"https://imslp.org/wiki/Scala_per_pianoforte_(Paganini,_Niccol%C3%B2)","title":"Scala per pianoforte","video":"","videoLabel":""},{"from":16,"genre":"classical","id":72,"ko":"","source":"https://imslp.org/wiki/Serenade_No.2,_Op.16_(Brahms,_Johannes)","title":"Serenade No.2, Op.16","video":"","videoLabel":""},{"from":156,"genre":"classical","id":73,"ko":"","source":"https://imslp.org/wiki/4_Sketches,_Op.4_(Smetana,_Bed%C5%99ich)","title":"4 Sketches, Op.4","video":"","videoLabel":""},{"from":156,"genre":"classical","id":74,"ko":"","source":"https://imslp.org/wiki/4_Sketches,_Op.5_(Smetana,_Bed%C5%99ich)","title":"4 Sketches, Op.5","video":"","videoLabel":""},{"from":151,"genre":"classical","id":75,"ko":"교향곡 4번, Op.120","source":"https://imslp.org/wiki/Symphony_No.4,_Op.120_(Schumann,_Robert)","title":"Symphony No.4, Op.120","video":"","videoLabel":""},{"from":16,"genre":"classical","id":76,"ko":"","source":"https://imslp.org/wiki/Theme_and_Variations,_Op.18b_(Brahms,_Johannes)","title":"Theme and Variations, Op.18b","video":"","videoLabel":""},{"from":151,"genre":"classical","id":77,"ko":"유령 변주곡, WoO 24","source":"https://imslp.org/wiki/Theme_and_Variations,_WoO_24_(Schumann,_Robert)","title":"Theme and Variations, WoO 24","video":"","videoLabel":""},{"from":16,"genre":"classical","id":78,"ko":"슈만 주제에 의한 변주곡, Op.9","source":"https://imslp.org/wiki/Variations_on_a_Theme_by_Robert_Schumann,_Op.9_(Brahms,_Johannes)","title":"Variations on a Theme by Robert Schumann, Op.9","video":"","videoLabel":""},{"from":91,"genre":"classical","id":79,"ko":"베네치아와 나폴리, S.159","source":"https://imslp.org/wiki/Venezia_e_Napoli,_S.159_(Liszt,_Franz)","title":"Venezia e Napoli, S.159","video":"","videoLabel":""},{"from":55,"genre":"classical","id":80,"ko":"","source":"https://imslp.org/wiki/Violin_Sonata_No.1,_Op.6_(Gade,_Niels)","title":"Violin Sonata No.1, Op.6","video":"","videoLabel":""},{"from":125,"genre":"classical","id":81,"ko":"","source":"https://imslp.org/wiki/Aus_der_Schweiz,_Op.57_(Raff,_Joachim)","title":"Aus der Schweiz, Op.57","video":"","videoLabel":""},{"from":16,"genre":"classical","id":82,"ko":"바이올린과 첼로를 위한 이중 협주곡, Op.102","source":"https://imslp.org/wiki/Concerto_for_Violin_and_Cello,_Op.102_(Brahms,_Johannes)","title":"Concerto for Violin and Cello, Op.102","video":"","videoLabel":""},{"from":21,"genre":"classical","id":83,"ko":"","source":"https://imslp.org/wiki/Damajanti,_Op.78_(Bruch,_Max)","title":"Damajanti, Op.78","video":"","videoLabel":""},{"from":91,"genre":"classical","id":84,"ko":"","source":"https://imslp.org/wiki/Hungarian_Rhapsody_No.12,_S.244%2F12_(Liszt,_Franz)","title":"Hungarian Rhapsody No.12, S.244/12","video":"","videoLabel":""},{"from":69,"genre":"classical","id":85,"ko":"","source":"https://imslp.org/wiki/Legenden,_Op.62_(Herzogenberg,_Heinrich_von)","title":"Legenden, Op.62","video":"","videoLabel":""},{"from":151,"genre":"classical","id":86,"ko":"","source":"https://imslp.org/wiki/Phantasie_for_Violin_and_Orchestra,_Op.131_(Schumann,_Robert)","title":"Phantasie for Violin and Orchestra, Op.131","video":"","videoLabel":""},{"from":158,"genre":"classical","id":87,"ko":"","source":"https://imslp.org/wiki/Piano_Quintet,_Op.25_(Stanford,_Charles_Villiers)","title":"Piano Quintet, Op.25","video":"","videoLabel":""},{"from":16,"genre":"classical","id":88,"ko":"","source":"https://imslp.org/wiki/Piano_Sonata_No.1,_Op.1_(Brahms,_Johannes)","title":"Piano Sonata No.1, Op.1","video":"","videoLabel":""},{"from":149,"genre":"classical","id":89,"ko":"바이올린과 피아노를 위한 세 개의 로망스, Op.22","source":"https://imslp.org/wiki/3_Romances,_Op.22_(Schumann,_Clara)","title":"3 Romances, Op.22","video":"A06ALWY_0Jw","videoLabel":"박혜윤·벤저민 그로브너"},{"from":136,"genre":"classical","id":90,"ko":"","source":"https://imslp.org/wiki/9_Salon_Pieces,_Op.11_(Rubinstein,_Anton)","title":"9 Salon Pieces, Op.11","video":"","videoLabel":""},{"from":141,"genre":"classical","id":91,"ko":"","source":"https://imslp.org/wiki/Spanish_Dances,_Op.21_(Sarasate,_Pablo_de)","title":"Spanish Dances, Op.21","video":"","videoLabel":""},{"from":56,"genre":"classical","id":92,"ko":"","source":"https://imslp.org/wiki/String_Quartet_No.3,_Op.51_(Gernsheim,_Friedrich)","title":"String Quartet No.3, Op.51","video":"","videoLabel":""},{"from":158,"genre":"classical","id":93,"ko":"","source":"https://imslp.org/wiki/String_Quartet_No.5,_Op.104_(Stanford,_Charles_Villiers)","title":"String Quartet No.5, Op.104","video":"","videoLabel":""},{"from":132,"genre":"classical","id":94,"ko":"","source":"https://imslp.org/wiki/Suite_No.1_for_Violin,_Op.26_(Ries,_Franz)","title":"Suite No.1 for Violin, Op.26","video":"","videoLabel":""},{"from":21,"genre":"classical","id":95,"ko":"","source":"https://imslp.org/wiki/Symphony_No.2,_Op.36_(Bruch,_Max)","title":"Symphony No.2, Op.36","video":"","videoLabel":""},{"from":55,"genre":"classical","id":96,"ko":"","source":"https://imslp.org/wiki/Symphony_No.6,_Op.32_(Gade,_Niels)","title":"Symphony No.6, Op.32","video":"","videoLabel":""},{"from":3,"genre":"classical","id":97,"ko":"","source":"https://imslp.org/wiki/Symphony,_Op.30_(Bargiel,_Woldemar)","title":"Symphony, Op.30","video":"","videoLabel":""},{"from":69,"genre":"classical","id":98,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto_in_A_major,_WoO_4_(Herzogenberg,_Heinrich_von)","title":"Violin Concerto in A major, WoO 4","video":"","videoLabel":""},{"from":151,"genre":"classical","id":99,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto_in_D_minor,_WoO_23_(Schumann,_Robert)","title":"Violin Concerto in D minor, WoO 23","video":"","videoLabel":""},{"from":21,"genre":"classical","id":100,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto_No.1,_Op.26_(Bruch,_Max)","title":"Violin Concerto No.1, Op.26","video":"","videoLabel":""},{"from":21,"genre":"classical","id":101,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto_No.3,_Op.58_(Bruch,_Max)","title":"Violin Concerto No.3, Op.58","video":"","videoLabel":""},{"from":44,"genre":"classical","id":102,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto,_Op.53_(Dvo%C5%99%C3%A1k,_Anton%C3%ADn)","title":"Violin Concerto, Op.53","video":"","videoLabel":""},{"from":16,"genre":"classical","id":103,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto,_Op.77_(Brahms,_Johannes)","title":"Violin Concerto, Op.77","video":"","videoLabel":""},{"from":129,"genre":"classical","id":104,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto,_Op.141_(Reinecke,_Carl)","title":"Violin Concerto, Op.141","video":"","videoLabel":""},{"from":70,"genre":"classical","id":105,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto,_Op.152a_(Hiller,_Ferdinand)","title":"Violin Concerto, Op.152a","video":"","videoLabel":""},{"from":150,"genre":"classical","id":106,"ko":"","source":"https://imslp.org/wiki/Violin_Sonata_No.1,_Op.12_(Schumann,_Georg)","title":"Violin Sonata No.1, Op.12","video":"","videoLabel":""},{"from":69,"genre":"classical","id":107,"ko":"","source":"https://imslp.org/wiki/Violin_Sonata_No.1,_Op.32_(Herzogenberg,_Heinrich_von)","title":"Violin Sonata No.1, Op.32","video":"","videoLabel":""},{"from":54,"genre":"classical","id":108,"ko":"","source":"https://imslp.org/wiki/Violin_Sonata_No.3,_Op.68_(Fuchs,_Robert)","title":"Violin Sonata No.3, Op.68","video":"","videoLabel":""},{"from":35,"genre":"classical","id":109,"ko":"","source":"https://imslp.org/wiki/Fantaisie,_Op.27_(Czerny,_Carl)","title":"Fantaisie, Op.27","video":"","videoLabel":""},{"from":107,"genre":"classical","id":110,"ko":"","source":"https://imslp.org/wiki/Grande_sonate,_Op.41_(Moscheles,_Ignaz)","title":"Grande sonate, Op.41","video":"","videoLabel":""},{"from":131,"genre":"classical","id":111,"ko":"","source":"https://imslp.org/wiki/2_Piano_Sonatas,_Op.1_(Ries,_Ferdinand)","title":"2 Piano Sonatas, Op.1","video":"","videoLabel":""},{"from":180,"genre":"classical","id":112,"ko":"","source":"https://imslp.org/wiki/3_Piano_Sonatas,_Op.6_(Woelfl,_Joseph)","title":"3 Piano Sonatas, Op.6","video":"","videoLabel":""},{"from":131,"genre":"classical","id":113,"ko":"","source":"https://imslp.org/wiki/Symphony_No.2,_Op.80_(Ries,_Ferdinand)","title":"Symphony No.2, Op.80","video":"","videoLabel":""},{"from":148,"genre":"classical","id":114,"ko":"","source":"https://imslp.org/wiki/8_Variations_on_a_French_Song,_D.624_(Schubert,_Franz)","title":"8 Variations on a French Song, D.624","video":"","videoLabel":""},{"from":75,"genre":"classical","id":115,"ko":"","source":"https://imslp.org/wiki/Helv%C3%A9tia,_Op.17_(Indy,_Vincent_d')","title":"Helvétia, Op.17","video":"","videoLabel":""},{"from":126,"genre":"classical","id":116,"ko":"물의 유희, M.30","source":"https://imslp.org/wiki/Jeux_d'eau,_M.30_(Ravel,_Maurice)","title":"Jeux d'eau, M.30","video":"","videoLabel":""},{"from":48,"genre":"classical","id":117,"ko":"","source":"https://imslp.org/wiki/Piano_Quartet_No.2,_Op.30_(Enescu,_George)","title":"Piano Quartet No.2, Op.30","video":"","videoLabel":""},{"from":116,"genre":"classical","id":118,"ko":"","source":"https://imslp.org/wiki/Piano_Quintet,_Op.41_(Piern%C3%A9,_Gabriel)","title":"Piano Quintet, Op.41","video":"","videoLabel":""},{"from":145,"genre":"classical","id":119,"ko":"","source":"https://imslp.org/wiki/Piano_Quintet,_Op.51_(Schmitt,_Florent)","title":"Piano Quintet, Op.51","video":"","videoLabel":""},{"from":48,"genre":"classical","id":120,"ko":"","source":"https://imslp.org/wiki/Pi%C3%A8ce_pour_piano_sur_le_nom_de_Faur%C3%A9_(Enescu,_George)","title":"Pièce pour piano sur le nom de Fauré","video":"","videoLabel":""},{"from":183,"genre":"classical","id":121,"ko":"슬픔의 시, Op.12","source":"https://imslp.org/wiki/Po%C3%A8me_%C3%A9l%C3%A9giaque,_Op.12_(Ysa%C3%BFe,_Eug%C3%A8ne)","title":"Poème élégiaque, Op.12","video":"","videoLabel":""},{"from":140,"genre":"classical","id":122,"ko":"","source":"https://imslp.org/wiki/3_Preludes_and_Fugues,_Op.109_(Saint-Sa%C3%ABns,_Camille)","title":"3 Preludes and Fugues, Op.109","video":"","videoLabel":""},{"from":140,"genre":"classical","id":123,"ko":"","source":"https://imslp.org/wiki/3_Rhapsodies,_Op.7_(Saint-Sa%C3%ABns,_Camille)","title":"3 Rhapsodies, Op.7","video":"","videoLabel":""},{"from":126,"genre":"classical","id":124,"ko":"","source":"https://imslp.org/wiki/String_Quartet_in_F_major,_M.35_(Ravel,_Maurice)","title":"String Quartet in F major, M.35","video":"ZHqvVnnry00","videoLabel":"내셔널 심포니 오케스트라 단원들"},{"from":171,"genre":"classical","id":125,"ko":"","source":"https://imslp.org/wiki/Symphony_in_A_minor,_Op.24_(Vierne,_Louis)","title":"Symphony in A minor, Op.24","video":"","videoLabel":""},{"from":82,"genre":"classical","id":126,"ko":"","source":"https://imslp.org/wiki/Violin_Sonata,_Op.64_(Koechlin,_Charles)","title":"Violin Sonata, Op.64","video":"","videoLabel":""},{"from":28,"genre":"classical","id":127,"ko":"바이올린·피아노·현악 사중주를 위한 콩세르, Op.21","source":"https://imslp.org/wiki/Concert_for_Violin,_Piano_and_String_Quartet,_Op.21_(Chausson,_Ernest)","title":"Concert for Violin, Piano and String Quartet, Op.21","video":"","videoLabel":""},{"from":11,"genre":"classical","id":128,"ko":"","source":"https://imslp.org/wiki/Fantaisie,_B.9_(Bloch,_Ernest)","title":"Fantaisie, B.9","video":"","videoLabel":""},{"from":75,"genre":"classical","id":129,"ko":"이스타르, Op.42","source":"https://imslp.org/wiki/Istar,_Op.42_(Indy,_Vincent_d')","title":"Istar, Op.42","video":"","videoLabel":""},{"from":88,"genre":"classical","id":130,"ko":"","source":"https://imslp.org/wiki/Piano_Quartet_(Lekeu,_Guillaume)","title":"Piano Quartet","video":"","videoLabel":""},{"from":50,"genre":"classical","id":131,"ko":"","source":"https://imslp.org/wiki/Piano_Quintet_No.1,_Op.89_(Faur%C3%A9,_Gabriel)","title":"Piano Quintet No.1, Op.89","video":"","videoLabel":""},{"from":28,"genre":"classical","id":132,"ko":"시곡, Op.25","source":"https://imslp.org/wiki/Po%C3%A8me,_Op.25_(Chausson,_Ernest)","title":"Poème, Op.25","video":"PgulubGTFZM","videoLabel":"힐러리 한"},{"from":85,"genre":"classical","id":133,"ko":"레치타티보와 스케르초 카프리스, Op.6","source":"https://imslp.org/wiki/Recitativo_und_Scherzo-Caprice,_Op.6_(Kreisler,_Fritz)","title":"Recitativo und Scherzo-Caprice, Op.6","video":"","videoLabel":""},{"from":75,"genre":"classical","id":134,"ko":"","source":"https://imslp.org/wiki/String_Quartet_No.1,_Op.35_(Indy,_Vincent_d')","title":"String Quartet No.1, Op.35","video":"","videoLabel":""},{"from":140,"genre":"classical","id":135,"ko":"","source":"https://imslp.org/wiki/String_Quartet_No.1,_Op.112_(Saint-Sa%C3%ABns,_Camille)","title":"String Quartet No.1, Op.112","video":"","videoLabel":""},{"from":12,"genre":"classical","id":136,"ko":"","source":"https://imslp.org/wiki/String_Quartet,_Op.32_(Bloch,_J%C3%B3zsef)","title":"String Quartet, Op.32","video":"","videoLabel":""},{"from":172,"genre":"classical","id":137,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto_No.8,_Op.59_(Vieuxtemps,_Henri)","title":"Violin Concerto No.8, Op.59","video":"","videoLabel":""},{"from":78,"genre":"classical","id":138,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto,_Op.17_(Jongen,_Joseph)","title":"Violin Concerto, Op.17","video":"","videoLabel":""},{"from":88,"genre":"classical","id":139,"ko":"","source":"https://imslp.org/wiki/Violin_Sonata_in_G_major_(Lekeu,_Guillaume)","title":"Violin Sonata in G major","video":"","videoLabel":""},{"from":78,"genre":"classical","id":140,"ko":"","source":"https://imslp.org/wiki/Violin_Sonata_No.1,_Op.27_(Jongen,_Joseph)","title":"Violin Sonata No.1, Op.27","video":"","videoLabel":""},{"from":95,"genre":"classical","id":141,"ko":"","source":"https://imslp.org/wiki/Violin_Sonata,_Op.13_(Magnard,_Alb%C3%A9ric)","title":"Violin Sonata, Op.13","video":"","videoLabel":""},{"from":171,"genre":"classical","id":142,"ko":"","source":"https://imslp.org/wiki/Violin_Sonata,_Op.23_(Vierne,_Louis)","title":"Violin Sonata, Op.23","video":"","videoLabel":""},{"from":52,"genre":"classical","id":143,"ko":"","source":"https://imslp.org/wiki/Violin_Sonata_(Franck,_C%C3%A9sar)","title":"Violin Sonata","video":"","videoLabel":""},{"from":87,"genre":"classical","id":144,"ko":"","source":"https://imslp.org/wiki/Fantaisie_norv%C3%A9gienne_(Lalo,_%C3%89douard)","title":"Fantaisie norvégienne","video":"","videoLabel":""},{"from":87,"genre":"classical","id":145,"ko":"","source":"https://imslp.org/wiki/Fantaisie-ballet_(Lalo,_%C3%89douard)","title":"Fantaisie-ballet","video":"","videoLabel":""},{"from":140,"genre":"classical","id":146,"ko":"서주와 론도 카프리치오소, Op.28","source":"https://imslp.org/wiki/Introduction_et_rondo_capriccioso,_Op.28_(Saint-Sa%C3%ABns,_Camille)","title":"Introduction et rondo capriccioso, Op.28","video":"","videoLabel":""},{"from":44,"genre":"classical","id":147,"ko":"","source":"https://imslp.org/wiki/Mazurek,_Op.49_(Dvo%C5%99%C3%A1k,_Anton%C3%ADn)","title":"Mazurek, Op.49","video":"","videoLabel":""},{"from":21,"genre":"classical","id":148,"ko":"스코틀랜드 환상곡, Op.46","source":"https://imslp.org/wiki/Scottish_Fantasy,_Op.46_(Bruch,_Max)","title":"Scottish Fantasy, Op.46","video":"","videoLabel":""},{"from":129,"genre":"classical","id":149,"ko":"","source":"https://imslp.org/wiki/Suite,_Op.153_(Reinecke,_Carl)","title":"Suite, Op.153","video":"","videoLabel":""},{"from":87,"genre":"classical","id":150,"ko":"스페인 교향곡, Op.21","source":"https://imslp.org/wiki/Symphonie_espagnole,_Op.21_(Lalo,_%C3%89douard)","title":"Symphonie espagnole, Op.21","video":"","videoLabel":""},{"from":76,"genre":"classical","id":151,"ko":"","source":"https://imslp.org/wiki/Variations_for_Violin_and_Orchestra_in_E_minor_(Joachim,_Joseph)","title":"Variations for Violin and Orchestra in E minor","video":"","videoLabel":""},{"from":140,"genre":"classical","id":152,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto_No.1,_Op.20_(Saint-Sa%C3%ABns,_Camille)","title":"Violin Concerto No.1, Op.20","video":"","videoLabel":""},{"from":56,"genre":"classical","id":153,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto_No.1,_Op.42_(Gernsheim,_Friedrich)","title":"Violin Concerto No.1, Op.42","video":"","videoLabel":""},{"from":176,"genre":"classical","id":154,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto_No.2,_Op.22_(Wieniawski,_Henri)","title":"Violin Concerto No.2, Op.22","video":"","videoLabel":""},{"from":21,"genre":"classical","id":155,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto_No.2,_Op.44_(Bruch,_Max)","title":"Violin Concerto No.2, Op.44","video":"","videoLabel":""},{"from":140,"genre":"classical","id":156,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto_No.3,_Op.61_(Saint-Sa%C3%ABns,_Camille)","title":"Violin Concerto No.3, Op.61","video":"","videoLabel":""},{"from":87,"genre":"classical","id":157,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto,_Op.20_(Lalo,_%C3%89douard)","title":"Violin Concerto, Op.20","video":"","videoLabel":""},{"from":114,"genre":"classical","id":158,"ko":"","source":"https://imslp.org/wiki/Violin_Sonata,_Op.13_(Paderewski,_Ignacy_Jan)","title":"Violin Sonata, Op.13","video":"","videoLabel":""},{"from":91,"genre":"classical","id":159,"ko":"순례의 해 제3년, S.163","source":"https://imslp.org/wiki/Ann%C3%A9es_de_p%C3%A8lerinage_III,_S.163_(Liszt,_Franz)","title":"Années de pèlerinage III, S.163","video":"","videoLabel":""},{"from":161,"genre":"classical","id":160,"ko":"이탈리아에서, Op.16","source":"https://imslp.org/wiki/Aus_Italien,_Op.16_(Strauss,_Richard)","title":"Aus Italien, Op.16","video":"","videoLabel":""},{"from":125,"genre":"classical","id":161,"ko":"","source":"https://imslp.org/wiki/Ein_feste_Burg_ist_unser_Gott,_Op.127_(Raff,_Joachim)","title":"Ein feste Burg ist unser Gott, Op.127","video":"","videoLabel":""},{"from":91,"genre":"classical","id":162,"ko":"헝가리 환상곡, S.123","source":"https://imslp.org/wiki/Fantasie_%C3%BCber_ungarische_Volksmelodien,_S.123_(Liszt,_Franz)","title":"Fantasie über ungarische Volksmelodien, S.123","video":"","videoLabel":""},{"from":56,"genre":"classical","id":163,"ko":"","source":"https://imslp.org/wiki/Fantasie,_Op.27_(Gernsheim,_Friedrich)","title":"Fantasie, Op.27","video":"","videoLabel":""},{"from":91,"genre":"classical","id":164,"ko":"","source":"https://imslp.org/wiki/Hungarian_Rhapsody_No.14,_S.244%2F14_(Liszt,_Franz)","title":"Hungarian Rhapsody No.14, S.244/14","video":"","videoLabel":""},{"from":125,"genre":"classical","id":165,"ko":"","source":"https://imslp.org/wiki/3_Klavier-Soli,_Op.74_(Raff,_Joachim)","title":"3 Klavier-Soli, Op.74","video":"","videoLabel":""},{"from":167,"genre":"classical","id":166,"ko":"","source":"https://en.wikipedia.org/wiki/Piano_Concerto_No._1_(Tchaikovsky)","title":"Piano Concerto No.1, Op.23","video":"","videoLabel":""},{"from":125,"genre":"classical","id":167,"ko":"","source":"https://imslp.org/wiki/Piano_Concerto,_Op.185_(Raff,_Joachim)","title":"Piano Concerto, Op.185","video":"","videoLabel":""},{"from":50,"genre":"classical","id":168,"ko":"","source":"https://imslp.org/wiki/Piano_Quartet_No.2,_Op.45_(Faur%C3%A9,_Gabriel)","title":"Piano Quartet No.2, Op.45","video":"","videoLabel":""},{"from":152,"genre":"classical","id":169,"ko":"","source":"https://imslp.org/wiki/Piano_Quintet_No.2,_Op.5_(Sgambati,_Giovanni)","title":"Piano Quintet No.2, Op.5","video":"","videoLabel":""},{"from":158,"genre":"classical","id":170,"ko":"","source":"https://imslp.org/wiki/Piano_Trio_No.1,_Op.35_(Stanford,_Charles_Villiers)","title":"Piano Trio No.1, Op.35","video":"","videoLabel":""},{"from":136,"genre":"classical","id":171,"ko":"","source":"https://imslp.org/wiki/6_Preludes_and_Fugues,_Op.53_(Rubinstein,_Anton)","title":"6 Preludes and Fugues, Op.53","video":"","videoLabel":""},{"from":40,"genre":"classical","id":172,"ko":"","source":"https://imslp.org/wiki/Sonata_quasi_Fantasia,_Op.6_(Draeseke,_Felix)","title":"Sonata quasi Fantasia, Op.6","video":"","videoLabel":""},{"from":91,"genre":"classical","id":173,"ko":"","source":"https://imslp.org/wiki/2_St%C3%BCcke_aus_Tannh%C3%A4user_und_Lohengrin,_S.445_(Liszt,_Franz)","title":"2 Stücke aus Tannhäuser und Lohengrin, S.445","video":"","videoLabel":""},{"from":108,"genre":"classical","id":174,"ko":"","source":"https://imslp.org/wiki/Suite_d'Orchestre_No.2,_Op.47_(Moszkowski,_Moritz)","title":"Suite d'Orchestre No.2, Op.47","video":"","videoLabel":""},{"from":40,"genre":"classical","id":175,"ko":"","source":"https://imslp.org/wiki/Symphonisches_Vorspiel_zu_'Penthesilea',_Op.50_(Draeseke,_Felix)","title":"Symphonisches Vorspiel zu 'Penthesilea', Op.50","video":"","videoLabel":""},{"from":44,"genre":"classical","id":176,"ko":"","source":"https://imslp.org/wiki/Symphony_No.5,_Op.76_(Dvo%C5%99%C3%A1k,_Anton%C3%ADn)","title":"Symphony No.5, Op.76","video":"","videoLabel":""},{"from":91,"genre":"classical","id":177,"ko":"죽음의 무도, S.126","source":"https://imslp.org/wiki/Totentanz,_S.126_(Liszt,_Franz)","title":"Totentanz, S.126","video":"","videoLabel":""},{"from":16,"genre":"classical","id":178,"ko":"","source":"https://imslp.org/wiki/Violin_Sonata_No.3,_Op.108_(Brahms,_Johannes)","title":"Violin Sonata No.3, Op.108","video":"","videoLabel":""},{"from":50,"genre":"classical","id":179,"ko":"","source":"https://imslp.org/wiki/Ballade,_Op.19_(Faur%C3%A9,_Gabriel)","title":"Ballade, Op.19","video":"","videoLabel":""},{"from":177,"genre":"classical","id":180,"ko":"","source":"https://imslp.org/wiki/Ballade,_Op.31_(Wieniawski,_J%C3%B3zef)","title":"Ballade, Op.31","video":"","videoLabel":""},{"from":61,"genre":"classical","id":181,"ko":"","source":"https://imslp.org/wiki/D%C3%A9part,_CG_369_(Gounod,_Charles)","title":"Départ, CG 369","video":"","videoLabel":""},{"from":125,"genre":"classical","id":182,"ko":"","source":"https://imslp.org/wiki/Fantasie-Sonate,_Op.168_(Raff,_Joachim)","title":"Fantasie-Sonate, Op.168","video":"","videoLabel":""},{"from":170,"genre":"classical","id":183,"ko":"","source":"https://imslp.org/wiki/12_M%C3%A9lodies_sur_des_po%C3%A9sies_russes_(Viardot,_Pauline)","title":"12 Mélodies sur des poésies russes","video":"","videoLabel":""},{"from":91,"genre":"classical","id":184,"ko":"메피스토 왈츠 2번, S.515","source":"https://imslp.org/wiki/Mephisto_Waltz_No.2,_S.515_(Liszt,_Franz)","title":"Mephisto Waltz No.2, S.515","video":"","videoLabel":""},{"from":50,"genre":"classical","id":185,"ko":"페넬로페","source":"https://imslp.org/wiki/P%C3%A9n%C3%A9lope_(Faur%C3%A9,_Gabriel)","title":"Pénélope","video":"","videoLabel":""},{"from":52,"genre":"classical","id":186,"ko":"","source":"https://imslp.org/wiki/Piano_Quintet_(Franck,_C%C3%A9sar)","title":"Piano Quintet","video":"","videoLabel":""},{"from":41,"genre":"classical","id":187,"ko":"","source":"https://imslp.org/wiki/Piano_Sonata_(Dukas,_Paul)","title":"Piano Sonata","video":"","videoLabel":""},{"from":99,"genre":"classical","id":188,"ko":"","source":"https://imslp.org/wiki/3_Pi%C3%A8ces_pour_piano_%C3%A0_4_mains,_Op.11_(Massenet,_Jules)","title":"3 Pièces pour piano à 4 mains, Op.11","video":"","videoLabel":""},{"from":57,"genre":"classical","id":189,"ko":"","source":"https://imslp.org/wiki/Pr%C3%A9lude_et_fugue,_Op.98_(Glazunov,_Aleksandr)","title":"Prélude et fugue, Op.98","video":"","videoLabel":""},{"from":52,"genre":"classical","id":190,"ko":"전주곡·푸가·변주곡, Op.18","source":"https://imslp.org/wiki/Pr%C3%A9lude,_fugue_et_variation,_Op.18_(Franck,_C%C3%A9sar)","title":"Prélude, fugue et variation, Op.18","video":"","videoLabel":""},{"from":61,"genre":"classical","id":191,"ko":"","source":"https://imslp.org/wiki/6_Romances_sans_paroles_(Gounod,_Charles)","title":"6 Romances sans paroles","video":"","videoLabel":""},{"from":94,"genre":"classical","id":192,"ko":"","source":"https://imslp.org/wiki/Second_Modern_Suite,_Op.14_(MacDowell,_Edward)","title":"Second Modern Suite, Op.14","video":"","videoLabel":""},{"from":116,"genre":"classical","id":193,"ko":"","source":"https://imslp.org/wiki/Suite_d'orchestre_No.1,_Op.11_(Piern%C3%A9,_Gabriel)","title":"Suite d'orchestre No.1, Op.11","video":"","videoLabel":""},{"from":48,"genre":"classical","id":194,"ko":"","source":"https://imslp.org/wiki/Suite_No.1_for_Orchestra,_Op.9_(Enescu,_George)","title":"Suite No.1 for Orchestra, Op.9","video":"","videoLabel":""},{"from":162,"genre":"classical","id":195,"ko":"요정의 입맞춤, K049","source":"https://imslp.org/wiki/Le_baiser_de_la_f%C3%A9e,_K049_(Stravinsky,_Igor)","title":"Le baiser de la fée, K049","video":"","videoLabel":""},{"from":162,"genre":"classical","id":196,"ko":"마브라, K039","source":"https://imslp.org/wiki/Mavra,_K039_(Stravinsky,_Igor)","title":"Mavra, K039","video":"","videoLabel":""},{"from":165,"genre":"classical","id":197,"ko":"","source":"https://imslp.org/wiki/String_Quartet_No.1,_Op.4_(Taneyev,_Sergey)","title":"String Quartet No.1, Op.4","video":"","videoLabel":""},{"from":1,"genre":"classical","id":198,"ko":"","source":"https://imslp.org/wiki/String_Quartet_No.2,_Op.35_(Arensky,_Anton)","title":"String Quartet No.2, Op.35","video":"","videoLabel":""},{"from":124,"genre":"classical","id":199,"ko":"","source":"https://imslp.org/wiki/Suite_No.1,_Op.5_(Rachmaninoff,_Sergei)","title":"Suite No.1, Op.5","video":"","videoLabel":""},{"from":57,"genre":"classical","id":200,"ko":"","source":"https://imslp.org/wiki/Symphony_No.3,_Op.33_(Glazunov,_Aleksandr)","title":"Symphony No.3, Op.33","video":"","videoLabel":""},{"from":124,"genre":"classical","id":201,"ko":"슬픔의 삼중주 2번, Op.9","source":"https://imslp.org/wiki/Trio_%C3%A9l%C3%A9giaque_No.2_in_D_minor,_Op.9_(Rachmaninoff,_Sergei)","title":"Trio élégiaque No.2 in D minor, Op.9","video":"","videoLabel":""},{"from":101,"genre":"classical","id":202,"ko":"","source":"https://imslp.org/wiki/Piano_Concerto_No.2,_Op.50_(Medtner,_Nikolay)","title":"Piano Concerto No.2, Op.50","video":"","videoLabel":""},{"from":101,"genre":"classical","id":203,"ko":"밤바람 소나타, Op.25 No.2","source":"https://imslp.org/wiki/Piano_Sonata,_Op.25_No.2_(Medtner,_Nikolay)","title":"Piano Sonata, Op.25 No.2","video":"","videoLabel":""},{"from":165,"genre":"classical","id":204,"ko":"","source":"https://imslp.org/wiki/String_Quartet_No.3,_Op.7_(Taneyev,_Sergey)","title":"String Quartet No.3, Op.7","video":"","videoLabel":""},{"from":91,"genre":"classical","id":205,"ko":"단테 교향곡, S.109","source":"https://imslp.org/wiki/Dante_Symphony,_S.109_(Liszt,_Franz)","title":"Dante Symphony, S.109","video":"","videoLabel":""},{"from":57,"genre":"classical","id":206,"ko":"바다, Op.28","source":"https://imslp.org/wiki/La_mer,_Op.28_(Glazunov,_Aleksandr)","title":"La mer, Op.28","video":"","videoLabel":""},{"from":91,"genre":"classical","id":207,"ko":"R.W. — 베네치아, S.201","source":"https://imslp.org/wiki/R.W._-_Venezia,_S.201_(Liszt,_Franz)","title":"R.W. - Venezia, S.201","video":"","videoLabel":""},{"from":22,"genre":"classical","id":208,"ko":"","source":"https://imslp.org/wiki/Symphony_No.3_in_D_minor,_WAB_103_(Bruckner,_Anton)","title":"Symphony No.3 in D minor, WAB 103","video":"","videoLabel":""},{"from":107,"genre":"classical","id":209,"ko":"","source":"https://imslp.org/wiki/Piano_Concerto_No.8,_Op.96_(Moscheles,_Ignaz)","title":"Piano Concerto No.8, Op.96","video":"","videoLabel":""},{"from":67,"genre":"classical","id":210,"ko":"","source":"https://imslp.org/wiki/Piano_Sonata_in_C_minor,_H.128_(Hensel,_Fanny)","title":"Piano Sonata in C minor, H.128","video":"","videoLabel":""},{"from":6,"genre":"classical","id":211,"ko":"","source":"https://imslp.org/wiki/Piano_Sonata,_Op.13_(Bennett,_William_Sterndale)","title":"Piano Sonata, Op.13","video":"","videoLabel":""},{"from":157,"genre":"classical","id":212,"ko":"","source":"https://imslp.org/wiki/Piano_Sonata,_Op.125_(Spohr,_Louis)","title":"Piano Sonata, Op.125","video":"","videoLabel":""},{"from":125,"genre":"classical","id":213,"ko":"","source":"https://imslp.org/wiki/12_Romances_en_forme_d'%C3%A9tudes,_Op.8_(Raff,_Joachim)","title":"12 Romances en forme d'études, Op.8","video":"","videoLabel":""},{"from":151,"genre":"classical","id":214,"ko":"","source":"https://imslp.org/wiki/String_Quartet_No.1,_Op.41_No.1_(Schumann,_Robert)","title":"String Quartet No.1, Op.41 No.1","video":"","videoLabel":""},{"from":151,"genre":"classical","id":215,"ko":"","source":"https://imslp.org/wiki/String_Quartet_No.2,_Op.41_No.2_(Schumann,_Robert)","title":"String Quartet No.2, Op.41 No.2","video":"","videoLabel":""},{"from":151,"genre":"classical","id":216,"ko":"","source":"https://imslp.org/wiki/String_Quartet_No.3,_Op.41_No.3_(Schumann,_Robert)","title":"String Quartet No.3, Op.41 No.3","video":"","videoLabel":""},{"from":55,"genre":"classical","id":217,"ko":"","source":"https://imslp.org/wiki/Symphony_No.1,_Op.5_(Gade,_Niels)","title":"Symphony No.1, Op.5","video":"","videoLabel":""},{"from":70,"genre":"classical","id":218,"ko":"","source":"https://imslp.org/wiki/Die_Zerst%C3%B6rung_Jerusalems,_Op.24_(Hiller,_Ferdinand)","title":"Die Zerstörung Jerusalems, Op.24","video":"","videoLabel":""},{"from":91,"genre":"classical","id":219,"ko":"초절기교 연습곡, S.139","source":"https://imslp.org/wiki/%C3%89tudes_d'ex%C3%A9cution_transcendante,_S.139_(Liszt,_Franz)","title":"Études d'exécution transcendante, S.139","video":"","videoLabel":""},{"from":107,"genre":"classical","id":220,"ko":"","source":"https://imslp.org/wiki/Hommage_%C3%A0_H%C3%A4ndel,_Op.92_(Moscheles,_Ignaz)","title":"Hommage à Händel, Op.92","video":"","videoLabel":""},{"from":79,"genre":"classical","id":221,"ko":"","source":"https://imslp.org/wiki/Le_R%C3%AAve,_Op.113_(Kalkbrenner,_Friedrich_Wilhelm)","title":"Le Rêve, Op.113","video":"","videoLabel":""},{"from":29,"genre":"classical","id":222,"ko":"‘그대 손을 주오’ 주제에 의한 변주곡, Op.2","source":"https://imslp.org/wiki/Variations_on_'L%C3%A0_ci_darem_la_mano',_Op.2_(Chopin,_Fr%C3%A9d%C3%A9ric)","title":"Variations on 'Là ci darem la mano', Op.2","video":"","videoLabel":""},{"from":91,"genre":"classical","id":223,"ko":"파우스트 교향곡, S.108","source":"https://imslp.org/wiki/Faust_Symphony,_S.108_(Liszt,_Franz)","title":"Faust Symphony, S.108","video":"","videoLabel":""},{"from":168,"genre":"classical","id":224,"ko":"","source":"https://imslp.org/wiki/Grand_Caprice_on_the_Triumphal_March_from_Berlioz%E2%80%99s_'L%E2%80%99apoth%C3%A9ose',_Op.58_(Thalberg,_Sigismond)","title":"Grand Caprice on the Triumphal March from Berlioz’s 'L’apothéose', Op.58","video":"","videoLabel":""},{"from":170,"genre":"classical","id":225,"ko":"","source":"https://imslp.org/wiki/10_M%C3%A9lodies_(Viardot,_Pauline)","title":"10 Mélodies","video":"","videoLabel":""},{"from":61,"genre":"classical","id":226,"ko":"","source":"https://imslp.org/wiki/Stabat_mater,_CG_186_(Gounod,_Charles)","title":"Stabat mater, CG 186","video":"","videoLabel":""},{"from":8,"genre":"classical","id":227,"ko":"","source":"https://imslp.org/wiki/3_String_Quartets,_Op.26_(Berg,_Konrad-Mathias)","title":"3 String Quartets, Op.26","video":"","videoLabel":""},{"from":157,"genre":"classical","id":228,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto_No.3,_Op.7_(Spohr,_Louis)","title":"Violin Concerto No.3, Op.7","video":"","videoLabel":""},{"from":5,"genre":"classical","id":229,"ko":"바이올린 소나타 9번 ‘크로이처’, Op.47","source":"https://imslp.org/wiki/Violin_Sonata_No.9,_Op.47_(Beethoven,_Ludwig_van)","title":"Violin Sonata No.9, Op.47","video":"","videoLabel":""},{"from":153,"genre":"classical","id":230,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto_No.1,_Op.77_(Shostakovich,_Dmitry)","title":"Violin Concerto No.1, Op.77","video":"","videoLabel":""},{"from":153,"genre":"classical","id":231,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto_No.2,_Op.129_(Shostakovich,_Dmitry)","title":"Violin Concerto No.2, Op.129","video":"","videoLabel":""},{"from":110,"genre":"classical","id":232,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto,_Op.44_(Myaskovsky,_Nikolay)","title":"Violin Concerto, Op.44","video":"","videoLabel":""},{"from":121,"genre":"classical","id":233,"ko":"","source":"https://imslp.org/wiki/Violin_Sonata_No.1,_Op.80_(Prokofiev,_Sergey)","title":"Violin Sonata No.1, Op.80","video":"","videoLabel":""},{"from":121,"genre":"classical","id":234,"ko":"","source":"https://imslp.org/wiki/Violin_Sonata_No.2,_Op.94bis_(Prokofiev,_Sergey)","title":"Violin Sonata No.2, Op.94bis","video":"","videoLabel":""},{"from":153,"genre":"classical","id":235,"ko":"","source":"https://imslp.org/wiki/Violin_Sonata,_Op.134_(Shostakovich,_Dmitry)","title":"Violin Sonata, Op.134","video":"","videoLabel":""},{"from":144,"genre":"classical","id":236,"ko":"","source":"https://imslp.org/wiki/Conzertante_Variationen_%C3%BCber_ein_Thema_von_Beethoven_(Schmidt,_Franz)","title":"Conzertante Variationen über ein Thema von Beethoven","video":"","videoLabel":""},{"from":161,"genre":"classical","id":237,"ko":"","source":"https://imslp.org/wiki/Parergon,_Op.73_(Strauss,_Richard)","title":"Parergon, Op.73","video":"","videoLabel":""},{"from":126,"genre":"classical","id":238,"ko":"왼손을 위한 피아노 협주곡, M.82","source":"https://imslp.org/wiki/Piano_Concerto_for_the_Left_Hand,_M.82_(Ravel,_Maurice)","title":"Piano Concerto for the Left Hand, M.82","video":"KJTUUKAdZDU","videoLabel":"엘렌 티스망"},{"from":83,"genre":"classical","id":239,"ko":"","source":"https://imslp.org/wiki/Piano_Concerto_for_the_Left_Hand,_Op.17_(Korngold,_Erich_Wolfgang)","title":"Piano Concerto for the Left Hand, Op.17","video":"","videoLabel":""},{"from":144,"genre":"classical","id":240,"ko":"","source":"https://imslp.org/wiki/Piano_Concerto_in_E-flat_major_(Schmidt,_Franz)","title":"Piano Concerto in E-flat major","video":"","videoLabel":""},{"from":14,"genre":"classical","id":241,"ko":"","source":"https://imslp.org/wiki/Piano_Concerto_No.2,_Op.28_(Bortkiewicz,_Sergei)","title":"Piano Concerto No.2, Op.28","video":"","videoLabel":""},{"from":121,"genre":"classical","id":242,"ko":"","source":"https://imslp.org/wiki/Piano_Concerto_No.4,_Op.53_(Prokofiev,_Sergey)","title":"Piano Concerto No.4, Op.53","video":"","videoLabel":""},{"from":83,"genre":"classical","id":243,"ko":"","source":"https://imslp.org/wiki/Suite_for_Left_Hand_Piano_and_Strings,_Op.23_(Korngold,_Erich_Wolfgang)","title":"Suite for Left Hand Piano and Strings, Op.23","video":"","videoLabel":""},{"from":124,"genre":"classical","id":244,"ko":"","source":"https://imslp.org/wiki/Piano_Concerto_No.4,_Op.40_(Rachmaninoff,_Sergei)","title":"Piano Concerto No.4, Op.40","video":"","videoLabel":""},{"from":135,"genre":"classical","id":245,"ko":"뮤즈들의 환영, L.27","source":"https://imslp.org/wiki/L'accueil_des_muses,_L.27_(Roussel,_Albert)","title":"L'accueil des muses, L.27","video":"","videoLabel":""},{"from":142,"genre":"classical","id":246,"ko":"끝에서 두 번째 생각들","source":"https://imslp.org/wiki/Avant-derni%C3%A8res_pens%C3%A9es_(Satie,_Erik)","title":"Avant-dernières pensées","video":"","videoLabel":""},{"from":96,"genre":"classical","id":247,"ko":"","source":"https://imslp.org/wiki/A_Claudio_Debussy_(Malipiero,_Gian_Francesco)","title":"A Claudio Debussy","video":"","videoLabel":""},{"from":49,"genre":"classical","id":248,"ko":"오마주: 드뷔시의 무덤에 바치는","source":"https://imslp.org/wiki/Homenaje_(Falla,_Manuel_de)","title":"Homenaje","video":"","videoLabel":""},{"from":4,"genre":"classical","id":249,"ko":"헝가리 농민 노래에 의한 즉흥곡, Op.20","source":"https://imslp.org/wiki/Improvisations_on_Hungarian_Peasant_Songs,_Op.20_(Bart%C3%B3k,_B%C3%A9la)","title":"Improvisations on Hungarian Peasant Songs, Op.20","video":"","videoLabel":""},{"from":145,"genre":"classical","id":250,"ko":"신기루, Op.70","source":"https://imslp.org/wiki/Mirages,_Op.70_(Schmitt,_Florent)","title":"Mirages, Op.70","video":"","videoLabel":""},{"from":142,"genre":"classical","id":251,"ko":"","source":"https://imslp.org/wiki/4_Petites_m%C3%A9lodies_(Satie,_Erik)","title":"4 Petites mélodies","video":"","videoLabel":""},{"from":41,"genre":"classical","id":252,"ko":"멀리서 들리는 목신의 탄식","source":"https://imslp.org/wiki/La_plainte,_au_loin,_du_faune_(Dukas,_Paul)","title":"La plainte, au loin, du faune","video":"","videoLabel":""},{"from":162,"genre":"classical","id":253,"ko":"별의 왕, K014","source":"https://imslp.org/wiki/Le_roi_des_%C3%A9toiles,_K014_(Stravinsky,_Igor)","title":"Le roi des étoiles, K014","video":"","videoLabel":""},{"from":126,"genre":"classical","id":254,"ko":"바이올린과 첼로를 위한 소나타, M.73","source":"https://imslp.org/wiki/Sonata_for_Violin_and_Cello,_M.73_(Ravel,_Maurice)","title":"Sonata for Violin and Cello, M.73","video":"","videoLabel":""},{"from":162,"genre":"classical","id":255,"ko":"관악기를 위한 교향곡, K036","source":"https://imslp.org/wiki/Symphonies_of_Wind_Instruments,_K036_(Stravinsky,_Igor)","title":"Symphonies of Wind Instruments, K036","video":"","videoLabel":""},{"from":72,"genre":"classical","id":256,"ko":"","source":"https://imslp.org/wiki/Chant_de_joie,_H.47_(Honegger,_Arthur)","title":"Chant de joie, H.47","video":"","videoLabel":""},{"from":145,"genre":"classical","id":257,"ko":"내밀한 음악, Op.29","source":"https://imslp.org/wiki/Musiques_intimes,_Op.29_(Schmitt,_Florent)","title":"Musiques intimes, Op.29","video":"","videoLabel":""},{"from":26,"genre":"classical","id":258,"ko":"아홉 개의 소품, Op.24","source":"https://imslp.org/wiki/9_Pezzi,_Op.24_(Casella,_Alfredo)","title":"9 Pezzi, Op.24","video":"","videoLabel":""},{"from":72,"genre":"classical","id":259,"ko":"","source":"https://imslp.org/wiki/3_Pieces,_H.23_(Honegger,_Arthur)","title":"3 Pieces, H.23","video":"","videoLabel":""},{"from":162,"genre":"classical","id":260,"ko":"일본 서정시에 의한 세 개의 노래, K016","source":"https://imslp.org/wiki/3_Poems_to_Japanese_Lyrics,_K016_(Stravinsky,_Igor)","title":"3 Poems to Japanese Lyrics, K016","video":"","videoLabel":""},{"from":166,"genre":"classical","id":261,"ko":"일곱 개의 전주곡","source":"https://imslp.org/wiki/7_Pr%C3%A9ludes_(Tansman,_Alexandre)","title":"7 Préludes","video":"","videoLabel":""},{"from":25,"genre":"classical","id":262,"ko":"","source":"https://imslp.org/wiki/24_Preludes,_Op.5_(Casadesus,_Robert)","title":"24 Preludes, Op.5","video":"","videoLabel":""},{"from":166,"genre":"classical","id":263,"ko":"","source":"https://imslp.org/wiki/Sonata_rustica_(Tansman,_Alexandre)","title":"Sonata rustica","video":"","videoLabel":""},{"from":175,"genre":"classical","id":264,"ko":"","source":"https://imslp.org/wiki/Concerto,_Op.24_(Webern,_Anton)","title":"Concerto, Op.24","video":"","videoLabel":""},{"from":7,"genre":"classical","id":265,"ko":"","source":"https://imslp.org/wiki/3_Orchesterst%C3%BCcke,_Op.6_(Berg,_Alban)","title":"3 Orchesterstücke, Op.6","video":"","videoLabel":""},{"from":46,"genre":"classical","id":266,"ko":"","source":"https://imslp.org/wiki/Piano_Sonata_No.1,_Op.1_(Eisler,_Hanns)","title":"Piano Sonata No.1, Op.1","video":"","videoLabel":""},{"from":104,"genre":"classical","id":267,"ko":"","source":"https://imslp.org/wiki/String_Quartet_No.5,_Op.64_(Milhaud,_Darius)","title":"String Quartet No.5, Op.64","video":"","videoLabel":""},{"from":37,"genre":"classical","id":268,"ko":"흑과 백으로, CD 142","source":"https://imslp.org/wiki/En_blanc_et_noir,_CD_142_(Debussy,_Claude)","title":"En blanc et noir, CD 142","video":"","videoLabel":""},{"from":119,"genre":"classical","id":269,"ko":"","source":"https://imslp.org/wiki/La_fra%C3%AEcheur_et_le_feu,_FP_147_(Poulenc,_Francis)","title":"La fraîcheur et le feu, FP 147","video":"","videoLabel":""},{"from":126,"genre":"classical","id":270,"ko":"말라르메의 세 개의 시, M.64","source":"https://imslp.org/wiki/3_Po%C3%A8mes_de_St%C3%A9phane_Mallarm%C3%A9,_M.64_(Ravel,_Maurice)","title":"3 Poèmes de Stéphane Mallarmé, M.64","video":"","videoLabel":""},{"from":145,"genre":"classical","id":271,"ko":"살로메의 비극, Op.50","source":"https://imslp.org/wiki/La_Trag%C3%A9die_de_Salom%C3%A9,_Op.50_(Schmitt,_Florent)","title":"La Tragédie de Salomé, Op.50","video":"","videoLabel":""},{"from":94,"genre":"classical","id":272,"ko":"","source":"https://imslp.org/wiki/Piano_Concerto_No.1,_Op.15_(MacDowell,_Edward)","title":"Piano Concerto No.1, Op.15","video":"","videoLabel":""},{"from":143,"genre":"classical","id":273,"ko":"","source":"https://imslp.org/wiki/Piano_Concerto_No.1,_Op.32_(Scharwenka,_Xaver)","title":"Piano Concerto No.1, Op.32","video":"","videoLabel":""},{"from":133,"genre":"classical","id":274,"ko":"","source":"https://en.wikipedia.org/wiki/Piano_Concerto_(Rimsky-Korsakov)","title":"Piano Concerto, Op.30","video":"","videoLabel":""},{"from":52,"genre":"classical","id":275,"ko":"","source":"https://imslp.org/wiki/Piano_Trio,_Op.2_(Franck,_C%C3%A9sar)","title":"Piano Trio, Op.2","video":"","videoLabel":""},{"from":125,"genre":"classical","id":276,"ko":"","source":"https://imslp.org/wiki/6_Po%C3%A8mes,_Op.15_(Raff,_Joachim)","title":"6 Poèmes, Op.15","video":"","videoLabel":""},{"from":70,"genre":"classical","id":277,"ko":"","source":"https://imslp.org/wiki/Rhythmische_Studien,_Op.52_(Hiller,_Ferdinand)","title":"Rhythmische Studien, Op.52","video":"","videoLabel":""},{"from":35,"genre":"classical","id":278,"ko":"","source":"https://imslp.org/wiki/Symphony_No.1,_Op.780_(Czerny,_Carl)","title":"Symphony No.1, Op.780","video":"","videoLabel":""},{"from":57,"genre":"classical","id":279,"ko":"","source":"https://imslp.org/wiki/Symphony_No.2,_Op.16_(Glazunov,_Aleksandr)","title":"Symphony No.2, Op.16","video":"","videoLabel":""},{"from":136,"genre":"classical","id":280,"ko":"","source":"https://imslp.org/wiki/Symphony_No.2,_Op.42_'Oc%C3%A9an'_(Rubinstein,_Anton)","title":"Symphony No.2, Op.42 'Océan'","video":"","videoLabel":""},{"from":140,"genre":"classical","id":281,"ko":"교향곡 3번 ‘오르간’, Op.78","source":"https://en.wikipedia.org/wiki/Symphony_No._3_(Saint-Sa%C3%ABns)","title":"Symphony No.3, Op.78","video":"","videoLabel":""},{"from":177,"genre":"classical","id":282,"ko":"","source":"https://imslp.org/wiki/Tarantelle_No.1,_Op.4_(Wieniawski,_J%C3%B3zef)","title":"Tarantelle No.1, Op.4","video":"","videoLabel":""},{"from":129,"genre":"classical","id":283,"ko":"","source":"https://imslp.org/wiki/Variationen_%C3%BCber_eine_Sarabande_von_J.S._Bach,_Op.24_(Reinecke,_Carl)","title":"Variationen über eine Sarabande von J.S. Bach, Op.24","video":"","videoLabel":""},{"from":76,"genre":"classical","id":284,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto_No.1,_Op.3_(Joachim,_Joseph)","title":"Violin Concerto No.1, Op.3","video":"","videoLabel":""},{"from":160,"genre":"classical","id":285,"ko":"서로 껴안아라, 수많은 사람들이여!, Op.443","source":"https://imslp.org/wiki/Seid_umschlungen,_Millionen,_Op.443_(Strauss_Jr.,_Johann)","title":"Seid umschlungen, Millionen, Op.443","video":"","videoLabel":""},{"from":44,"genre":"classical","id":286,"ko":"","source":"https://imslp.org/wiki/String_Quartet_No.9,_Op.34_(Dvo%C5%99%C3%A1k,_Anton%C3%ADn)","title":"String Quartet No.9, Op.34","video":"","videoLabel":""},{"from":69,"genre":"classical","id":287,"ko":"","source":"https://imslp.org/wiki/String_Quartet,_Op.42_No.1_(Herzogenberg,_Heinrich_von)","title":"String Quartet, Op.42 No.1","video":"","videoLabel":""},{"from":69,"genre":"classical","id":288,"ko":"","source":"https://imslp.org/wiki/String_Quartet,_Op.42_No.2_(Herzogenberg,_Heinrich_von)","title":"String Quartet, Op.42 No.2","video":"","videoLabel":""},{"from":69,"genre":"classical","id":289,"ko":"","source":"https://imslp.org/wiki/String_Quartet,_Op.42_No.3_(Herzogenberg,_Heinrich_von)","title":"String Quartet, Op.42 No.3","video":"","videoLabel":""},{"from":73,"genre":"classical","id":290,"ko":"","source":"https://imslp.org/wiki/Suite_for_Piano_4-hands,_Op.15_(Hummel,_Ferdinand)","title":"Suite for Piano 4-hands, Op.15","video":"","videoLabel":""},{"from":21,"genre":"classical","id":291,"ko":"","source":"https://imslp.org/wiki/Symphony_No.1,_Op.28_(Bruch,_Max)","title":"Symphony No.1, Op.28","video":"","videoLabel":""},{"from":76,"genre":"classical","id":292,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto_No.2,_Op.11_(Joachim,_Joseph)","title":"Violin Concerto No.2, Op.11","video":"","videoLabel":""},{"from":37,"genre":"classical","id":293,"ko":"하이든을 기리며, CD 123","source":"https://imslp.org/wiki/Hommage_%C3%A0_Haydn,_CD_123_(Debussy,_Claude)","title":"Hommage à Haydn, CD 123","video":"","videoLabel":""},{"from":33,"genre":"classical","id":294,"ko":"","source":"https://imslp.org/wiki/3_Piano_Sonatas,_Op.22_(Cramer,_Johann_Baptist)","title":"3 Piano Sonatas, Op.22","video":"","videoLabel":""},{"from":109,"genre":"classical","id":295,"ko":"","source":"https://imslp.org/wiki/String_Quartet_No.14_in_G_major,_K.387_(Mozart,_Wolfgang_Amadeus)","title":"String Quartet No.14 in G major, K.387","video":"","videoLabel":""},{"from":109,"genre":"classical","id":296,"ko":"","source":"https://imslp.org/wiki/String_Quartet_No.15_in_D_minor,_K.421%2F417b_(Mozart,_Wolfgang_Amadeus)","title":"String Quartet No.15 in D minor, K.421/417b","video":"","videoLabel":""},{"from":109,"genre":"classical","id":297,"ko":"","source":"https://imslp.org/wiki/String_Quartet_No.16_in_E-flat_major,_K.428%2F421b_(Mozart,_Wolfgang_Amadeus)","title":"String Quartet No.16 in E-flat major, K.428/421b","video":"","videoLabel":""},{"from":109,"genre":"classical","id":298,"ko":"","source":"https://imslp.org/wiki/String_Quartet_No.17_in_B-flat_major,_K.458_(Mozart,_Wolfgang_Amadeus)","title":"String Quartet No.17 in B-flat major, K.458","video":"","videoLabel":""},{"from":109,"genre":"classical","id":299,"ko":"","source":"https://imslp.org/wiki/String_Quartet_No.18_in_A_major,_K.464_(Mozart,_Wolfgang_Amadeus)","title":"String Quartet No.18 in A major, K.464","video":"","videoLabel":""},{"from":109,"genre":"classical","id":300,"ko":"","source":"https://imslp.org/wiki/String_Quartet_No.19_in_C_major,_K.465_(Mozart,_Wolfgang_Amadeus)","title":"String Quartet No.19 in C major, K.465","video":"","videoLabel":""},{"from":53,"genre":"classical","id":301,"ko":"","source":"https://imslp.org/wiki/3_Trios_concertants,_Op.45_(Fuchs,_Georg_Friedrich)","title":"3 Trios concertants, Op.45","video":"","videoLabel":""},{"from":9,"genre":"classical","id":302,"ko":"파우스트의 겁벌, H 111","source":"https://books.google.com/books?id=6Ew0AQAAMAAJ","title":"La damnation de Faust, H 111","video":"","videoLabel":""},{"from":9,"genre":"classical","id":303,"ko":"로미오와 줄리엣, H 79","source":"https://imslp.org/wiki/Rom%C3%A9o_et_Juliette,_H_79_(Berlioz,_Hector)","title":"Roméo et Juliette, H 79","video":"","videoLabel":""},{"from":29,"genre":"classical","id":304,"ko":"","source":"https://imslp.org/wiki/Piano_Concerto_No.1,_Op.11_(Chopin,_Fr%C3%A9d%C3%A9ric)","title":"Piano Concerto No.1, Op.11","video":"","videoLabel":""},{"from":29,"genre":"classical","id":305,"ko":"","source":"https://imslp.org/wiki/Cello_Sonata,_Op.65_(Chopin,_Fr%C3%A9d%C3%A9ric)","title":"Cello Sonata, Op.65","video":"","videoLabel":""},{"from":29,"genre":"classical","id":306,"ko":"","source":"https://imslp.org/wiki/Piano_Sonata_No.1,_Op.4_(Chopin,_Fr%C3%A9d%C3%A9ric)","title":"Piano Sonata No.1, Op.4","video":"","videoLabel":""},{"from":29,"genre":"classical","id":307,"ko":"전주곡, Op.28","source":"https://imslp.org/wiki/Preludes,_Op.28_(Chopin,_Fr%C3%A9d%C3%A9ric)","title":"Preludes, Op.28","video":"","videoLabel":""},{"from":16,"genre":"classical","id":308,"ko":"","source":"https://en.wikipedia.org/wiki/Piano_Concerto_No._2_(Brahms)","title":"Piano Concerto No.2, Op.83","video":"","videoLabel":""},{"from":124,"genre":"classical","id":309,"ko":"","source":"https://www.brusselsphilharmonic.be/en/notes-rachmaninov-concerto1","title":"Piano Concerto No.1, Op.1","video":"5fhdawBjt8U","videoLabel":"세르게이 라흐마니노프"},{"from":124,"genre":"classical","id":310,"ko":"","source":"https://en.wikipedia.org/wiki/Piano_Concerto_No._3_(Rachmaninoff)","title":"Piano Concerto No.3, Op.30","video":"","videoLabel":""},{"from":124,"genre":"classical","id":311,"ko":"","source":"https://imslp.org/wiki/Cello_Sonata,_Op.19_(Rachmaninoff,_Sergei)","title":"Cello Sonata, Op.19","video":"","videoLabel":""},{"from":124,"genre":"classical","id":312,"ko":"교향적 무곡, Op.45","source":"https://imslp.org/wiki/Symphonic_Dances,_Op.45_(Rachmaninoff,_Sergei)","title":"Symphonic Dances, Op.45","video":"","videoLabel":""},{"from":167,"genre":"classical","id":313,"ko":"","source":"https://imslp.org/wiki/Violin_Concerto,_Op.35_(Tchaikovsky,_Pyotr)","title":"Violin Concerto, Op.35","video":"","videoLabel":""},{"from":167,"genre":"classical","id":314,"ko":"","source":"https://imslp.org/wiki/Piano_Concerto_No.2,_Op.44_(Tchaikovsky,_Pyotr)","title":"Piano Concerto No.2, Op.44","video":"","videoLabel":""},{"from":167,"genre":"classical","id":315,"ko":"피아노 삼중주 ‘위대한 예술가를 추억하며’, Op.50","source":"https://en.wikipedia.org/wiki/Piano_Trio_(Tchaikovsky)","title":"Piano Trio, Op.50","video":"","videoLabel":""},{"from":153,"genre":"classical","id":316,"ko":"","source":"https://www.bso.org/works/cello-concerto-no-1","title":"Cello Concerto No.1, Op.107","video":"h23WjKXDe4w","videoLabel":"므스티슬라프 로스트로포비치"},{"from":153,"genre":"classical","id":317,"ko":"","source":"https://imslp.org/wiki/Cello_Concerto_No.2,_Op.126_(Shostakovich,_Dmitry)","title":"Cello Concerto No.2, Op.126","video":"","videoLabel":""},{"from":153,"genre":"classical","id":318,"ko":"","source":"https://en.wikipedia.org/wiki/Symphony_No._14_(Shostakovich)","title":"Symphony No.14, Op.135","video":"","videoLabel":""},{"from":121,"genre":"classical","id":319,"ko":"교향적 협주곡, Op.125","source":"https://www.warnerclassics.com/release/prokofiev-1-3-rostropovich","title":"Symphony-Concerto, Op.125","video":"9GWCoyGaUyo","videoLabel":"므스티슬라프 로스트로포비치"},{"from":126,"genre":"classical","id":320,"ko":"","source":"https://imslp.org/wiki/Piano_Concerto_in_G_major,_M.83_(Ravel,_Maurice)","title":"Piano Concerto in G major, M.83","video":"","videoLabel":""},{"from":52,"genre":"classical","id":321,"ko":"","source":"https://imslp.org/wiki/Symphony_in_D_minor_(Franck,_C%C3%A9sar)","title":"Symphony in D minor","video":"","videoLabel":""},{"from":50,"genre":"classical","id":322,"ko":"","source":"https://en.wikipedia.org/wiki/Piano_Quintet_No._2_(Faur%C3%A9)","title":"Piano Quintet No.2, Op.115","video":"","videoLabel":""},{"from":183,"genre":"classical","id":323,"ko":"","source":"https://imslp.org/wiki/6_Sonatas_for_Solo_Violin,_Op.27_(Ysa%C3%BFe,_Eug%C3%A8ne)","title":"Sonata for Solo Violin No.1, Op.27 No.1","video":"","videoLabel":""},{"from":183,"genre":"classical","id":324,"ko":"","source":"https://imslp.org/wiki/6_Sonatas_for_Solo_Violin,_Op.27_(Ysa%C3%BFe,_Eug%C3%A8ne)","title":"Sonata for Solo Violin No.2, Op.27 No.2","video":"","videoLabel":""},{"from":183,"genre":"classical","id":325,"ko":"","source":"https://imslp.org/wiki/6_Sonatas_for_Solo_Violin,_Op.27_(Ysa%C3%BFe,_Eug%C3%A8ne)","title":"Sonata for Solo Violin No.3, Op.27 No.3","video":"","videoLabel":""},{"from":183,"genre":"classical","id":326,"ko":"","source":"https://imslp.org/wiki/6_Sonatas_for_Solo_Violin,_Op.27_(Ysa%C3%BFe,_Eug%C3%A8ne)","title":"Sonata for Solo Violin No.4, Op.27 No.4","video":"","videoLabel":""},{"from":183,"genre":"classical","id":327,"ko":"","source":"https://imslp.org/wiki/6_Sonatas_for_Solo_Violin,_Op.27_(Ysa%C3%BFe,_Eug%C3%A8ne)","title":"Sonata for Solo Violin No.5, Op.27 No.5","video":"","videoLabel":""},{"from":183,"genre":"classical","id":328,"ko":"","source":"https://imslp.org/wiki/6_Sonatas_for_Solo_Violin,_Op.27_(Ysa%C3%BFe,_Eug%C3%A8ne)","title":"Sonata for Solo Violin No.6, Op.27 No.6","video":"","videoLabel":""},{"from":105,"genre":"jazz","id":329,"ko":"","source":"https://en.wikipedia.org/wiki/Goodbye_Pork_Pie_Hat","title":"Goodbye Pork Pie Hat","video":"CWWO_VcdnHY","videoLabel":"찰스 밍거스 · Mingus Ah Um"},{"from":90,"genre":"jazz","id":330,"ko":"","source":"https://en.wikipedia.org/wiki/Django_(composition)","title":"Django","video":"","videoLabel":""},{"from":60,"genre":"jazz","id":331,"ko":"","source":"https://en.wikipedia.org/wiki/I_Remember_Clifford_(song)","title":"I Remember Clifford","video":"4QzZZRflVz8","videoLabel":"베니 골슨"},{"from":106,"genre":"jazz","id":332,"ko":"","source":"https://en.wikipedia.org/wiki/In_Walked_Bud","title":"In Walked Bud","video":"","videoLabel":""},{"from":30,"genre":"jazz","id":333,"ko":"","source":"https://en.wikipedia.org/wiki/Mr._P.C.","title":"Mr. P.C.","video":"PttNMqbNMOI","videoLabel":"존 콜트레인 · Giant Steps"},{"from":100,"genre":"popular","id":334,"ko":"","source":"https://en.wikipedia.org/wiki/Here_Today_(Paul_McCartney_song)","title":"Here Today","video":"0FKPSv8VxFg","videoLabel":"폴 매카트니 · 2015 리믹스"},{"from":64,"genre":"popular","id":335,"ko":"","source":"https://en.wikipedia.org/wiki/All_Those_Years_Ago","title":"All Those Years Ago","video":"","videoLabel":""},{"from":159,"genre":"popular","id":336,"ko":"","source":"https://en.wikipedia.org/wiki/Never_Without_You","title":"Never Without You","video":"Zr2w1CAt_U0","videoLabel":"링고 스타 · 뮤직비디오"},{"from":77,"genre":"popular","id":337,"ko":"","source":"https://en.wikipedia.org/wiki/Empty_Garden_(Hey_Hey_Johnny)","title":"Empty Garden (Hey Hey Johnny)","video":"SWyy7Huc6KA","videoLabel":"엘턴 존 · 공식 뮤직비디오"},{"from":77,"genre":"popular","id":338,"ko":"","source":"https://en.wikipedia.org/wiki/Empty_Garden_(Hey_Hey_Johnny)","title":"The Man Who Never Died","video":"","videoLabel":""},{"from":45,"genre":"popular","id":339,"ko":"","source":"https://en.wikipedia.org/wiki/Roll_On_John","title":"Roll On John","video":"","videoLabel":""},{"from":45,"genre":"popular","id":340,"ko":"","source":"https://en.wikipedia.org/wiki/Song_to_Woody","title":"Song to Woody","video":"lOWfCVQBixs","videoLabel":"밥 딜런 · 공식 음원"},{"from":15,"genre":"popular","id":341,"ko":"","source":"https://en.wikipedia.org/wiki/Song_for_Bob_Dylan","title":"Song for Bob Dylan","video":"v23YSyH3Fe8","videoLabel":"데이비드 보위 · 2015 리마스터"},{"from":181,"genre":"popular","id":342,"ko":"","source":"https://en.wikipedia.org/wiki/Master_Blaster_(Jammin%27)","title":"Master Blaster (Jammin')","video":"","videoLabel":""}]}</script>
+<script>
+(function(){
+"use strict";
+const D = JSON.parse(document.getElementById('atlas-data').textContent);
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const KIND = {
+  dedication:{ko:'헌정', c:[20,20,20], dash:[]},
+  memorial:  {ko:'추모', c:[20,20,20], dash:[0.5,3.5]},
+  homage:    {ko:'오마주',c:[20,20,20], dash:[6,4]}
+};
+const workById = new Map(D.works.map(w=>[w.id,w]));
+/* ── 초상을 불러올 음악가(저작권이 만료된 초상·사진) ── */
+const PORTRAIT_IDS = [0,5,9,10,13,16,22,23,24,28,29,33,35,37,41,43,44,47,50,51,52,55,57,58,61,62,66,67,70,74,76,79,86,87,91,98,99,102,107,109,114,115,118,124,126,128,133,135,136,138,140,141,148,149,151,156,157,162,167,168,170,172,174,176,183];
+
+/* ── 널리 알려진 곡 ── */
+const PORTRAIT_SET = new Set(PORTRAIT_IDS);
+const FAMOUS = new Set([0,3,15,33,34,36,46,47,51,60,63,65,66,75,82,89,102,103,116,124,132,143,146,148,150,154,166,177,195,201,205,208,219,223,229,230,233,234,238,244,248,254,268,295,296,297,298,299,300,304,305,307,309,310,312,313,315,316,318,319,320,321,323,324,325,326,327,328,329,330,331,332,333,334,335,336,337,340,341]);
+
+/* ── 헌정에 얽힌 짧은 이야기 (작품id 또는 작품id:받은이id) ── */
+const STORY = {
+ '0':'쇼팽이 슈만에게 되돌려 보낸 답례. 슈만이 크라이슬레리아나를 자신에게 바치자 이 발라드를 헌정했다.',
+ '15':'슈만이 쇼팽에게 바친 곡. 두 사람이 서로의 작품을 주고받은 대표적인 교환이다.',
+ '3':'리스트가 슈만에게 바친 유일한 대작 소나타. 슈만의 환상곡 Op.17에 대한 답례였다.',
+ '47':'슈만이 리스트에게 바친 환상곡. 본래 베토벤 기념비 건립 기금을 위해 쓰였다.',
+ '46':'쇼팽이 리스트에게 바친 첫 연습곡집. 리스트의 연주에 감탄해 헌정했다고 전해진다.',
+ '60':'리스트가 클라라 슈만에게 바친 파가니니 대연습곡. 제3곡이 라 캄파넬라다.',
+ '65':'슈만이 결혼식 전날 클라라에게 건넨 가곡집. 첫 곡이 헌정(Widmung)이다.',
+ '66':'슈만이 클라라에게 바친 피아노 오중주. 초연에서 클라라가 피아노를 맡았다.',
+ '63':'브람스가 만년에 클라라 슈만에게 보낸 여섯 소품. 제2곡 인터메초가 특히 사랑받는다.',
+ '89':'클라라 슈만이 요아힘을 위해 쓴 세 개의 로망스.',
+ '103':'브람스가 평생의 벗 요아힘을 위해 쓴 협주곡. 카덴차도 요아힘이 지었다.',
+ '82':'브람스가 요아힘, 첼리스트 하우스만에게 함께 바친 마지막 관현악곡.',
+ '102':'드보르자크가 요아힘에게 바친 협주곡. 요아힘의 조언을 받아 여러 번 고쳐 썼다.',
+ '229':'본래 바이올리니스트 조지 브리지타워를 위해 쓰였으나, 다툰 뒤 출판 악보는 크로이처에게 바쳐졌다.',
+ '166':'차이콥스키가 뷜로에게 바친 협주곡. 니콜라이 루빈시테인에게 혹평받은 뒤 헌정 대상을 바꿨고, 초연도 뷜로가 미국에서 했다.',
+ '315':'세상을 떠난 니콜라이 루빈시테인을 기려 쓴 삼중주. 표지에 "위대한 예술가를 추억하며"라 적혀 있다.',
+ '201':'차이콥스키의 부고를 듣고 쓴 추모 삼중주.',
+ '195':'차이콥스키를 기리며 그의 선율을 엮어 만든 발레 음악.',
+ '310':'라흐마니노프가 당대 최고의 피아니스트 요제프 호프만에게 바친 협주곡. 정작 호프만은 끝내 연주하지 않았다.',
+ '309':'사촌이자 스승이었던 알렉산드르 실로티에게 바친 첫 협주곡.',
+ '312':'유진 오먼디와 필라델피아 오케스트라에게 바친 마지막 작품.',
+ '313':'출판 악보는 아돌프 브로드스키에게 바쳐졌다. 처음 헌정받은 레오폴트 아우어가 연주 불가능하다며 거절했기 때문이다.',
+ '316':'로스트로포비치를 위해 쓴 첼로 협주곡. 그는 나흘 만에 악보를 외워 연주했다.',
+ '318':'브리튼에게 바친 죽음에 관한 교향곡.',
+ '230':'다비트 오이스트라흐에게 바친 협주곡. 정치적 탄압 탓에 완성 후 7년이 지나서야 초연됐다.',
+ '238':'전쟁에서 오른팔을 잃은 피아니스트 파울 비트겐슈타인의 의뢰로 쓴 왼손만을 위한 협주곡.',
+ '124':'라벨이 스승 포레에게 바친 현악 사중주.',
+ '116':'라벨이 포레에게 바친 물의 유희. 인상주의 피아노 어법을 연 작품으로 꼽힌다.',
+ '320':'라벨이 초연자 마르그리트 롱에게 바친 G장조 협주곡.',
+ '254':'드뷔시를 추모하는 잡지 기획에서 출발해 완성된 이중주 소나타.',
+ '248':'드뷔시의 죽음을 기려 기타를 위해 쓴 오마주.',
+ '143':'프랑크가 이자이의 결혼식 날 선물한 소나타. 그날 오후 바로 초연됐다.',
+ '132':'쇼송이 이자이를 위해 쓴 시곡. 이자이가 초연했다.',
+ '150':'랄로가 사라사테를 위해 쓴 스페인 교향곡. 사실상 바이올린 협주곡이다.',
+ '148':'브루흐가 사라사테에게 바친 스코틀랜드 환상곡.',
+ '146':'생상스가 사라사테를 위해 쓴 서주와 론도 카프리치오소.',
+ '154':'비에니아프스키가 사라사테에게 바친 협주곡 2번.',
+ '295':'모차르트가 하이든에게 바친 여섯 개의 사중주 가운데 하나. "오랜 노고의 결실"이라 적어 보냈다.',
+ '296':'하이든에게 바친 여섯 사중주 연작 중 한 곡.',
+ '297':'하이든에게 바친 여섯 사중주 연작 중 한 곡.',
+ '298':'하이든에게 바친 여섯 사중주 연작 중 한 곡.',
+ '299':'하이든에게 바친 여섯 사중주 연작 중 한 곡.',
+ '300':'하이든에게 바친 여섯 사중주 연작 중 한 곡.',
+ '33':'베토벤이 스승 하이든에게 바친 Op.2 소나타 세 곡 중 첫 곡.',
+ '34':'하이든에게 바친 Op.2 소나타 중 두 번째 곡.',
+ '36':'하이든에게 바친 Op.2 소나타 중 세 번째 곡.',
+ '219':'리스트가 스승 체르니에게 바친 초절기교 연습곡.',
+ '208':'브루크너가 바그너에게 바친 교향곡. 이후 "바그너 교향곡"이라 불렸다.',
+ '205':'리스트가 사위가 될 바그너에게 바친 단테 교향곡.',
+ '223':'리스트가 베를리오즈에게 바친 파우스트 교향곡.',
+ '307:118':'프랑스 초판은 출판업자이자 피아니스트인 카미유 플레옐에게 바쳐졌다.',
+ '307:80':'독일 초판은 피아니스트 케슬러에게 바쳐졌다.',
+ '305':'쇼팽이 첼리스트 프랑콤에게 바친 마지막 출판작.',
+ '304':'쇼팽이 파리의 대가 칼크브레너에게 바친 첫 협주곡.',
+ '321':'프랑크가 제자 뒤파르크에게 바친 d단조 교향곡.',
+ '268':'전쟁 중에 쓴 두 대의 피아노 모음곡. 각 곡을 쿠세비츠키, 전사한 벗, 스트라빈스키에게 나누어 바쳤다.',
+ '244':'라흐마니노프가 메트너에게 바친 협주곡. 메트너는 소나타 Op.25-2로 화답했다.',
+ '323':'이자이가 요제프 시게티를 위해 쓴 무반주 소나타 1번.',
+ '324':'자크 티보를 위한 소나타 2번. 바흐의 전주곡과 진노의 날 선율이 얽힌다.',
+ '325':'조르제 에네스쿠에게 바친 소나타 3번 발라드.',
+ '326':'프리츠 크라이슬러에게 바친 소나타 4번.',
+ '327':'제자 마티외 크릭붐에게 바친 소나타 5번.',
+ '328':'마누엘 키로가에게 바친 소나타 6번.',
+ '329':'세상을 떠난 색소포니스트 레스터 영을 기리며 쓴 블루스.',
+ '330':'집시 기타리스트 장고 라인하르트를 기린 곡.',
+ '331':'스물다섯에 교통사고로 떠난 트럼펫 주자 클리퍼드 브라운을 기린 발라드.',
+ '332':'멍크가 벗이자 동료 피아니스트 버드 파월에게 바친 곡.',
+ '333':'콜트레인 사중주단의 베이시스트 폴 체임버스에게 바친 블루스.',
+ '334':'매카트니가 존 레넌에게 건네는 말처럼 쓴 노래.',
+ '335':'조지 해리슨이 레넌을 기리며 쓴 곡. 매카트니와 스타도 연주에 참여했다.',
+ '336':'링고 스타가 해리슨을 기리며 부른 노래.',
+ '337':'엘턴 존이 레넌의 죽음을 두고 쓴 노래.',
+ '340':'스무 살의 딜런이 우디 거스리에게 바친 첫 자작곡.',
+ '341':'보위가 딜런에게 부친 노래.'
+};
+
+
+/* ── 그래프 만들기 ── */
+const nodes = D.artists.map(a=>({
+  id:a.id, ko:a.ko, name:a.name, short:a.short||a.ko,
+  x:0,y:0,vx:0,vy:0,inD:0,outD:0,r:5,
+  k:{dedication:0,memorial:0,homage:0}, inRel:[], outRel:[], nb:new Set()
+}));
+const byId = new Map(nodes.map(n=>[n.id,n]));
+const links = [];
+for(const r of D.relations){
+  const w = workById.get(r.work); if(!w) continue;
+  const s = byId.get(w.from), t = byId.get(r.to);
+  if(!s || !t) continue;
+  const L = {s,t,kind:r.kind,rel:r,work:w,off:0, fame: FAMOUS.has(w.id)||!!w.video};
+  links.push(L);
+  if(L.fame){ s.fame=true; t.fame=true; }
+  t.inD++; s.outD++; t.k[r.kind]=(t.k[r.kind]||0)+1;
+  t.inRel.push(L); s.outRel.push(L);
+  if(s!==t){ s.nb.add(t); t.nb.add(s); }
+}
+// 같은 쌍이 여러 번이면 곡선을 서로 어긋나게
+const pairSeen = new Map();
+for(const L of links){
+  const key = L.s.id<L.t.id ? L.s.id+'-'+L.t.id : L.t.id+'-'+L.s.id;
+  const n = (pairSeen.get(key)||0); pairSeen.set(key,n+1);
+  L.off = (n%2? -1:1) * Math.ceil(n/2) * 13;
+}
+for(const n of nodes) n.r = 3.6 + Math.sqrt(n.inD)*3.5 + Math.min(n.outD,8)*0.22;
+// 연결이 가장 많은 음악가를 지도 한가운데에 고정
+let hub = nodes[0];
+for(const n of nodes) if(n.inD+n.outD > hub.inD+hub.outD) hub = n;
+hub.pin = true;
+document.getElementById('count').textContent =
+  '음악가 ' + nodes.length + '명 · 연결 ' + links.length + '개';
+
+/* ── 초기 배치: 받은 헌정이 많을수록 안쪽 ── */
+const sorted = nodes.slice().sort((a,b)=>b.inD-a.inD);
+let seed = 7;
+const rnd = ()=> (seed = (seed*1103515245+12345)&0x7fffffff)/0x7fffffff;
+let ri = 0;
+sorted.forEach(n=>{
+  if(n.pin){ n.x=0; n.y=0; return; }
+  const ring = 96 + Math.sqrt(ri)*76;
+  const ang = ri*2.399963 + rnd()*0.5;
+  n.x = Math.cos(ang)*ring; n.y = Math.sin(ang)*ring; ri++;
+});
+
+/* ── 힘 시뮬레이션 ── */
+let alpha = 1;
+function tick(a){
+  const N = nodes.length;
+  for(let i=0;i<N;i++){
+    const p = nodes[i];
+    for(let j=i+1;j<N;j++){
+      const q = nodes[j];
+      let dx=q.x-p.x, dy=q.y-p.y, d2=dx*dx+dy*dy;
+      if(d2 < 0.01){ dx=rnd()-.5; dy=rnd()-.5; d2=dx*dx+dy*dy+.01; }
+      if(d2 > 620*620) continue;
+      const d = Math.sqrt(d2);
+      const f = (620*(p.r+q.r)) / d2 * a;
+      const fx = dx/d*f, fy = dy/d*f;
+      p.vx-=fx; p.vy-=fy; q.vx+=fx; q.vy+=fy;
+    }
+  }
+  for(const L of links){
+    if(L.s===L.t) continue;
+    const dx=L.t.x-L.s.x, dy=L.t.y-L.s.y;
+    const d=Math.hypot(dx,dy)||1;
+    const rest = 74 + L.s.r + L.t.r;
+    const f = (d-rest)*0.055*a;
+    const fx=dx/d*f, fy=dy/d*f;
+    L.s.vx+=fx; L.s.vy+=fy; L.t.vx-=fx; L.t.vy-=fy;
+  }
+  for(const n of nodes){
+    n.vx -= n.x*0.0022*a; n.vy -= n.y*0.0022*a;
+    if(n.pin){ n.x=0; n.y=0; n.vx=0; n.vy=0; continue; }
+    if(n.held){ n.vx=0; n.vy=0; continue; }
+    n.vx*=0.80; n.vy*=0.80;
+    n.x+=n.vx; n.y+=n.vy;
+  }
+}
+for(let i=0;i<300;i++) tick(Math.max(0.12, 1-i/300));
+alpha = 0.06;
+
+
+/* ── 초상 불러오기 ── */
+const IMG = new Map();          // artistId -> HTMLImageElement | 'no'
+let portraitOK = 0;
+function enName(n){
+  const t = n.name.split(',');
+  return (t[1] ? t[1].trim()+' ' : '') + t[0].trim();
+}
+function loadPortraits(){
+  const want = PORTRAIT_IDS.map(id=>byId.get(id)).filter(Boolean);
+  for(let i=0;i<want.length;i+=20){
+    const batch = want.slice(i,i+20);
+    const titles = batch.map(enName).join('|');
+    const url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*'
+      + '&prop=pageimages&piprop=thumbnail&pithumbsize=220&redirects=1&titles='
+      + encodeURIComponent(titles);
+    fetch(url).then(r=>r.json()).then(j=>{
+      const pages = (j.query && j.query.pages) || {};
+      const found = new Map();
+      for(const k in pages){
+        const pg = pages[k];
+        if(pg.thumbnail && pg.thumbnail.source) found.set(pg.title.toLowerCase(), pg.thumbnail.source);
+      }
+      const norm = new Map();
+      ((j.query&&j.query.normalized)||[]).forEach(r=>norm.set(r.from.toLowerCase(), r.to.toLowerCase()));
+      ((j.query&&j.query.redirects)||[]).forEach(r=>norm.set(r.from.toLowerCase(), r.to.toLowerCase()));
+      for(const n of batch){
+        let key = enName(n).toLowerCase();
+        for(let h=0;h<3 && norm.has(key);h++) key = norm.get(key);
+        const src = found.get(key);
+        if(!src){ IMG.set(n.id,'no'); continue; }
+        const im = new Image();
+        im.referrerPolicy = 'no-referrer';
+        im.onload = ()=>{ im.ready = true; portraitOK++; hideToast(); };
+        im.onerror = ()=> IMG.set(n.id,'no');
+        im.src = src;
+        IMG.set(n.id, im);
+      }
+    }).catch(()=>{ batch.forEach(n=>IMG.set(n.id,'no')); });
+  }
+  setTimeout(()=>{ if(!portraitOK) showToast(); }, 5000);
+}
+function showToast(){ document.getElementById('toast').classList.add('on'); }
+function hideToast(){ document.getElementById('toast').classList.remove('on'); }
+loadPortraits();
+
+/* ── 카메라(스프링) ── */
+const cam = {x:0,y:0,k:1, tx:0,ty:0,tk:1, vx:0,vy:0,vk:0, mode:'free'};
+let bounds = {minX:0,maxX:0,minY:0,maxY:0};
+function measure(){
+  let a=1e9,b=-1e9,c=1e9,d=-1e9;
+  for(const n of nodes){ a=Math.min(a,n.x);b=Math.max(b,n.x);c=Math.min(c,n.y);d=Math.max(d,n.y); }
+  bounds={minX:a,maxX:b,minY:c,maxY:d};
+}
+measure();
+let K_MIN = .25, K_MAX = 4.2;
+
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W=0,H=0,DPR=1, panelW=0;
+function resize(){
+  DPR = Math.min(devicePixelRatio||1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = W*DPR; cv.height = H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  panelW = (W>860 && !sheet.classList.contains('hide')) ? 440 : 0;
+  K_MIN = Math.min(.25, fitScale()*0.55);
+}
+function viewCX(){ return (W - panelW)/2; }
+function viewCY(){ return W>860 ? H/2 : H/2 - (sheet.classList.contains('hide')?0:Math.min(H*0.33,190)); }
+function fitScale(){
+  const w = bounds.maxX-bounds.minX+130, h = bounds.maxY-bounds.minY+130;
+  return Math.min((W-panelW-40)/w, (H-150)/h);
+}
+function toScreen(n){ return [ (n.x-cam.x)*cam.k + viewCX(), (n.y-cam.y)*cam.k + viewCY() ]; }
+function toWorld(sx,sy){ return [ (sx-viewCX())/cam.k + cam.x, (sy-viewCY())/cam.k + cam.y ]; }
+
+function flyTo(x,y,k){
+  cam.mode='spring'; cam.tx=x; cam.ty=y; cam.tk=clampK(k);
+}
+function clampK(k){ return Math.max(K_MIN, Math.min(K_MAX,k)); }
+function fitAll(){
+  const cx=(bounds.minX+bounds.maxX)/2, cy=(bounds.minY+bounds.maxY)/2;
+  flyTo(cx,cy, fitScale()*0.94);
+}
+
+/* ── 상태 ── */
+let sel = null, hov = null, hovBead = null, query='', matches=new Set();
+const on = {dedication:true, memorial:true, homage:true};
+
+/* ── 입력 ── */
+const pts = new Map();
+let drag=null, pinch=null, moved=0, downAt=0, anchor=null, anchorT=0;
+
+cv.addEventListener('pointerdown', e=>{
+  cv.setPointerCapture(e.pointerId);
+  pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  hideHint();
+  if(pts.size===2){
+    const [a,b]=[...pts.values()];
+    pinch={d:Math.hypot(a.x-b.x,a.y-b.y), k:cam.k,
+      mx:(a.x+b.x)/2, my:(a.y+b.y)/2};
+    pinch.w = toWorld(pinch.mx,pinch.my);
+    drag=null; return;
+  }
+  moved=0; downAt=performance.now();
+  const n = pick(e.clientX,e.clientY);
+  cam.mode='free'; cam.vx=cam.vy=0;
+  drag = n ? {node:n, lx:e.clientX, ly:e.clientY}
+           : {lx:e.clientX, ly:e.clientY};
+  if(n){ n.held=true; alpha=Math.max(alpha,.28); }
+});
+cv.addEventListener('pointermove', e=>{
+  const p = pts.get(e.pointerId);
+  if(p){ p.x=e.clientX; p.y=e.clientY; }
+  if(pinch && pts.size>=2){
+    const [a,b]=[...pts.values()];
+    const d = Math.hypot(a.x-b.x,a.y-b.y);
+    let k = pinch.k * (d/pinch.d);
+    k = rubber(k);
+    cam.k = k; cam.tk = clampK(k);
+    const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+    cam.x = pinch.w[0] - (mx-viewCX())/cam.k;
+    cam.y = pinch.w[1] - (my-viewCY())/cam.k;
+    return;
+  }
+  if(!drag){
+    const n=pick(e.clientX,e.clientY);
+    const b=n?null:pickBead(e.clientX,e.clientY);
+    if(n!==hov||b!==hovBead){ hov=n; hovBead=b; cv.style.cursor=(n||b)?'pointer':'grab'; }
+    return;
+  }
+  const dx = e.clientX-drag.lx, dy = e.clientY-drag.ly;
+  drag.lx=e.clientX; drag.ly=e.clientY;
+  moved += Math.abs(dx)+Math.abs(dy);
+  if(drag.node){
+    drag.node.x += dx/cam.k; drag.node.y += dy/cam.k;
+    alpha = Math.max(alpha,.3);
+  }else{
+    cam.x -= dx/cam.k; cam.y -= dy/cam.k;
+    cam.vx = -dx/cam.k*60/16; cam.vy = -dy/cam.k*60/16;
+  }
+});
+function release(e){
+  const wasPinch = pts.size>=2;
+  pts.delete(e.pointerId);
+  if(wasPinch && pts.size<2){ pinch=null; cam.tk=clampK(cam.k); cam.mode='free'; }
+  if(!drag) return;
+  const d = drag; drag=null;
+  if(d.node){ d.node.held=false; alpha=Math.max(alpha,.25); }
+  if(moved<9 && performance.now()-downAt<420){
+    const n = pick(e.clientX,e.clientY);
+    if(n){ select(n); }
+    else {
+      const b = pickBead(e.clientX,e.clientY);
+      if(b) select(b.t, b.rel.id);
+      else if(!d.node) select(null);
+    }
+  }
+}
+cv.addEventListener('pointerup', release);
+cv.addEventListener('pointercancel', release);
+
+cv.addEventListener('wheel', e=>{
+  e.preventDefault(); hideHint();
+  anchor = toWorld(e.clientX,e.clientY); anchorT=performance.now();
+  anchor.push(e.clientX,e.clientY);
+  const f = Math.exp(-e.deltaY*0.0016);
+  cam.tk = clampK(cam.tk*f);
+  cam.mode='free';
+},{passive:false});
+
+cv.addEventListener('dblclick', e=>{
+  const n = pick(e.clientX,e.clientY);
+  if(n) select(n); else flyTo(...toWorld(e.clientX,e.clientY), cam.k*1.9);
+});
+
+function rubber(k){
+  if(k>K_MAX) return K_MAX + (k-K_MAX)*0.28;
+  if(k<K_MIN) return K_MIN - (K_MIN-k)*0.28;
+  return k;
+}
+function pickBead(sx,sy){
+  let best=null, bd=1e9;
+  for(const L of links){
+    if(L._bx==null) continue;
+    const d=Math.hypot(L._bx-sx, L._by-sy);
+    if(d<15 && d<bd){ bd=d; best=L; }
+  }
+  return best;
+}
+function pick(sx,sy){
+  let best=null, bd=1e9;
+  for(const n of nodes){
+    const [x,y]=toScreen(n);
+    const d = Math.hypot(x-sx,y-sy);
+    const hit = Math.max(n.r*cam.k+9, 15);
+    if(d<hit && d<bd){ bd=d; best=n; }
+  }
+  return best;
+}
+
+/* ── 선택 & 패널 ── */
+const sheet=document.getElementById('sheet');
+function select(n, focusRel){
+  sel = n;
+  if(!n){ sheet.classList.add('hide'); resize(); return; }
+  buildPanel(n, focusRel);
+  sheet.classList.remove('hide');
+  resize();
+  const tk = Math.max(cam.k, 1.15);
+  flyTo(n.x, n.y, tk);
+  alpha = Math.max(alpha,.16);
+}
+document.getElementById('sClose').onclick = ()=> select(null);
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function workTitle(w){ return w.ko ? w.ko : w.title; }
+function jo(name){ // 이/가
+  const ch = name.charCodeAt(name.length-1);
+  if(ch<0xAC00||ch>0xD7A3) return name+'가';
+  return name + (((ch-0xAC00)%28) ? '이' : '가');
+}
+function storyOf(L){
+  const k1 = L.work.id+':'+L.t.id;
+  if(STORY[k1]) return STORY[k1];
+  if(STORY[L.work.id]) return STORY[L.work.id];
+  let s = jo(L.s.short)+' '+L.t.short+'에게 바친 '+KIND[L.kind].ko+'곡';
+  if(L.rel.scope) s += ' · '+L.rel.scope;
+  s += '.';
+  if(L.rel.note) s += ' '+L.rel.note;
+  return s;
+}
+function ytOf(L){
+  const w=L.work;
+  if(w.video) return {u:'https://www.youtube.com/watch?v='+w.video, t:(w.videoLabel||'연주 영상'), exact:true};
+  const q = (L.rel.query && L.rel.query.trim()) || (L.s.name.split(',')[0].trim()+' '+w.title);
+  return {u:'https://www.youtube.com/results?search_query='+encodeURIComponent(q), t:'연주 영상 찾기', exact:false};
+}
+function itemHTML(L, dir){
+  const w=L.work;
+  const other = dir==='in' ? L.s : L.t;
+  const label = dir==='in' ? '작곡 '+other.ko : '받은 이 '+other.ko;
+  const v = ytOf(L);
+  let h = '<div class="item'+(L.fame?' fame':'')+'" data-rel="'+L.rel.id+'">';
+  h += '<div class="who"><button class="jump" data-go="'+other.id+'">'+esc(label)+'</button>'
+     + (FAMOUS.has(w.id)?'<i class="badge">대표곡</i>':'') + '</div>';
+  h += '<div class="what">'+esc(workTitle(w))+'</div>';
+  if(w.ko && w.title!==w.ko) h += '<div class="meta">'+esc(w.title)+'</div>';
+  h += '<p class="tale">'+esc(storyOf(L))+'</p>';
+  const links=['<a class="v'+(v.exact?' ex':'')+'" href="'+esc(v.u)+'" target="_blank" rel="noopener">'+esc(v.t)+'</a>'];
+  if(w.source) links.push('<a href="'+esc(w.source)+'" target="_blank" rel="noopener">악보·자료</a>');
+  h += '<div class="links">'+links.join('')+'</div>';
+  return h+'</div>';
+}
+function buildPanel(n, focusRel){
+  document.getElementById('sName').textContent = n.ko;
+  document.getElementById('sSub').textContent = n.name;
+  const t=[];
+  for(const k of ['dedication','memorial','homage']){
+    if(n.k[k]) t.push('<span class="'+k[0]+'"><b>'+n.k[k]+'</b>'+KIND[k].ko+' 받음</span>');
+  }
+  if(n.outD) t.push('<span><b>'+n.outD+'</b>바침</span>');
+  document.getElementById('sTally').innerHTML = t.join('') || '<span>기록된 헌정이 없습니다</span>';
+
+  const rank = a => (FAMOUS.has(a.work.id)?0:a.work.video?1:2);
+  let h='';
+  for(const k of ['dedication','memorial','homage']){
+    const rows = n.inRel.filter(L=>L.kind===k).sort((a,b)=>rank(a)-rank(b));
+    if(!rows.length) continue;
+    const cls = k==='memorial'?' m':k==='homage'?' h':'';
+    h += '<section class="group'+cls+'"><h3>'+esc(n.short)+'에게 바친 '+KIND[k].ko+' '+rows.length+'곡</h3>'
+      + rows.map(L=>itemHTML(L,'in')).join('') + '</section>';
+  }
+  if(n.outRel.length){
+    const rows = n.outRel.slice().sort((a,b)=>rank(a)-rank(b));
+    h += '<section class="group out"><h3>'+esc(n.short)+'가 바친 '+rows.length+'곡</h3>'
+      + rows.map(L=>itemHTML(L,'out')).join('') + '</section>';
+  }
+  if(!h) h = '<p style="color:var(--muted);margin-top:18px">이 음악가와 이어진 기록이 아직 없습니다.</p>';
+  const body=document.getElementById('sBody');
+  body.innerHTML=h; body.scrollTop=0;
+  body.querySelectorAll('[data-go]').forEach(b=>{
+    b.onclick=()=>{ const t=byId.get(+b.dataset.go); if(t) select(t); };
+  });
+  if(focusRel!=null){
+    const el = body.querySelector('[data-rel="'+focusRel+'"]');
+    if(el){
+      el.classList.add('lit');
+      requestAnimationFrame(()=>el.scrollIntoView({block:'center',behavior:'smooth'}));
+    }
+  }
+}
+
+/* ── 검색 ── */
+const q=document.getElementById('q'), res=document.getElementById('res'), qx=document.getElementById('qx');
+function runSearch(){
+  query = q.value.trim().toLowerCase();
+  qx.classList.toggle('on', !!query);
+  matches = new Set();
+  if(!query){ res.classList.remove('on'); res.innerHTML=''; return; }
+  const hits = nodes.filter(n =>
+    n.ko.toLowerCase().includes(query) || n.name.toLowerCase().includes(query) || n.short.toLowerCase().includes(query)
+  ).sort((a,b)=>b.inD-a.inD);
+  hits.forEach(n=>matches.add(n));
+  res.innerHTML = hits.slice(0,6).map(n=>
+    '<button data-id="'+n.id+'">'+esc(n.ko)+'<em>'+esc(n.name)+'</em></button>').join('')
+    || '<button disabled style="color:var(--muted)">찾는 이름이 없습니다</button>';
+  res.classList.add('on');
+  res.querySelectorAll('[data-id]').forEach(b=>{
+    b.onclick=()=>{ const n=byId.get(+b.dataset.id); res.classList.remove('on'); q.blur(); select(n); };
+  });
+}
+q.addEventListener('input', runSearch);
+q.addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ const f=res.querySelector('[data-id]'); if(f) f.click(); }
+  if(e.key==='Escape'){ q.value=''; runSearch(); q.blur(); }
+});
+qx.onclick=()=>{ q.value=''; runSearch(); q.focus(); };
+document.addEventListener('pointerdown', e=>{
+  if(!res.contains(e.target) && e.target!==q) res.classList.remove('on');
+}, true);
+
+/* ── 필터 ── */
+document.getElementById('chips').addEventListener('click', e=>{
+  const c = e.target.closest('.chip'); if(!c) return;
+  on[c.dataset.k] = !on[c.dataset.k];
+  c.classList.toggle('on', on[c.dataset.k]);
+});
+
+/* ── 버튼 ── */
+document.getElementById('zin').onclick = ()=>{ cam.tk=clampK(cam.tk*1.55); cam.mode = cam.mode==='spring'?'spring':'free'; };
+document.getElementById('zout').onclick= ()=>{ cam.tk=clampK(cam.tk/1.55); };
+document.getElementById('reset').onclick=()=>{ select(null); setTimeout(()=>{measure();fitAll();},20); };
+document.getElementById('shake').onclick=()=>{
+  for(const n of nodes){ n.vx += (rnd()-.5)*26; n.vy += (rnd()-.5)*26; }
+  alpha = 1; hideHint();
+};
+document.getElementById('retry').onclick=()=>{ hideToast(); IMG.clear(); portraitOK=0; loadPortraits(); };
+const hintEl=document.getElementById('hint');
+let hinted=false;
+function hideHint(){ if(!hinted){ hinted=true; hintEl.classList.add('gone'); } }
+setTimeout(hideHint, 9000);
+
+/* ── 루프 ── */
+let last=performance.now();
+function frame(now){
+  let dt = Math.min((now-last)/1000, 0.05); last=now;
+  if(RM) dt = Math.min(dt,1/60);
+
+  // 물리
+  const a = RM ? 0 : alpha;
+  if(a>0.001){ tick(a); alpha = Math.max(0.045, alpha*0.988); }
+  if(Math.random()<0.02) measure();
+
+  // 카메라 스프링
+  if(cam.mode==='spring'){
+    sp(cam,'x','tx','vx',dt,120,17);
+    sp(cam,'y','ty','vy',dt,120,17);
+    sp(cam,'k','tk','vk',dt,150,19);
+    if(Math.abs(cam.x-cam.tx)<.4 && Math.abs(cam.y-cam.ty)<.4 && Math.abs(cam.k-cam.tk)<.002) cam.mode='free';
+  }else{
+    if(!pinch){
+      sp(cam,'k','tk','vk',dt,150,19);           // 확대는 늘 탄성
+      if(anchor && now-anchorT<520){             // 커서 지점 고정
+        cam.x = anchor[0] - (anchor[2]-viewCX())/cam.k;
+        cam.y = anchor[1] - (anchor[3]-viewCY())/cam.k;
+      }
+    }
+    if(!drag && !pinch){
+      cam.x += cam.vx*dt; cam.y += cam.vy*dt;
+      const f = Math.exp(-3.4*dt); cam.vx*=f; cam.vy*=f;
+      // 경계에서 고무줄처럼 되돌아오기
+      const padX = (W-panelW)/2/cam.k*0.72, padY = H/2/cam.k*0.72;
+      const lx1=bounds.minX-padX, lx2=bounds.maxX+padX;
+      const ly1=bounds.minY-padY, ly2=bounds.maxY+padY;
+      if(cam.x<lx1){ cam.vx += (lx1-cam.x)*26*dt; cam.vx*=0.86; }
+      if(cam.x>lx2){ cam.vx += (lx2-cam.x)*26*dt; cam.vx*=0.86; }
+      if(cam.y<ly1){ cam.vy += (ly1-cam.y)*26*dt; cam.vy*=0.86; }
+      if(cam.y>ly2){ cam.vy += (ly2-cam.y)*26*dt; cam.vy*=0.86; }
+    }
+  }
+  draw(now);
+  requestAnimationFrame(frame);
+}
+function sp(o,c,t,v,dt,k,d){
+  const acc = k*(o[t]-o[c]) - d*o[v];
+  o[v] += acc*dt; o[c] += o[v]*dt;
+}
+
+/* ── 그리기 ── */
+function draw(now){
+  ctx.clearRect(0,0,W,H);
+  const g = ctx.createRadialGradient(viewCX(),viewCY()*0.8,0, viewCX(),viewCY(), Math.max(W,H)*0.86);
+  g.addColorStop(0,'#FFFFFF'); g.addColorStop(.45,'#F8F8F6'); g.addColorStop(1,'#EDEDE9');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  const g2 = ctx.createLinearGradient(0,0,W,H);
+  g2.addColorStop(0,'rgba(224,228,236,.55)'); g2.addColorStop(.5,'rgba(255,255,255,0)');
+  g2.addColorStop(1,'rgba(232,226,216,.5)');
+  ctx.fillStyle=g2; ctx.fillRect(0,0,W,H);
+
+  const near = new Set();
+  if(sel){ near.add(sel); sel.nb.forEach(n=>near.add(n)); }
+  const K = cam.k;
+  const pulse = RM ? 1 : 0.85 + Math.sin(now/620)*0.15;
+
+  // 연결선
+  const beads=[];
+  ctx.lineCap='round';
+  for(const L of links){
+    L._bx = null;
+    if(L.s===L.t) continue;
+    if(!on[L.kind]) continue;
+    const [x1,y1]=toScreen(L.s), [x2,y2]=toScreen(L.t);
+    if((x1<-80&&x2<-80)||(x1>W+80&&x2>W+80)||(y1<-80&&y2<-80)||(y1>H+80&&y2>H+80)) continue;
+    const lit = sel && (L.s===sel||L.t===sel);
+    const dim = (sel && !lit) || (query && !(matches.has(L.s)||matches.has(L.t)));
+    const c = KIND[L.kind].c;
+    const mx=(x1+x2)/2, my=(y1+y2)/2;
+    const nx=-(y2-y1), ny=(x2-x1), nl=Math.hypot(nx,ny)||1;
+    const bow = (18 + L.off) * K * 0.5;
+    const cxp = mx + nx/nl*bow, cyp = my + ny/nl*bow;
+    const dash = KIND[L.kind].dash;
+    ctx.setLineDash(dash.length ? dash.map(v=>v*Math.max(.8,Math.min(2,K))) : []);
+    if(lit){
+      const grad = ctx.createLinearGradient(x1,y1,x2,y2);
+      grad.addColorStop(0,'rgba(20,20,20,0.10)');
+      grad.addColorStop(1,'rgba(20,20,20,0.78)');
+      ctx.strokeStyle=grad; ctx.lineWidth=Math.max(1.1, 1.6*K);
+    }else{
+      ctx.strokeStyle='rgba(20,20,20,'+(dim?0.045:0.15)+')';
+      ctx.lineWidth=Math.max(.5, 0.8*K);
+    }
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.quadraticCurveTo(cxp,cyp,x2,y2); ctx.stroke();
+    ctx.setLineDash([]);
+    if(L.fame && !dim && K>0.42){
+      L._bx = 0.25*x1 + 0.5*cxp + 0.25*x2;
+      L._by = 0.25*y1 + 0.5*cyp + 0.25*y2;
+      beads.push(L);
+    } else { L._bx = null; }
+  }
+  for(const L of beads){
+    const lit = sel && (L.s===sel||L.t===sel);
+    const rr = (lit?4.6:3.2) * (0.94+0.06*pulse);
+    ctx.beginPath(); ctx.arc(L._bx,L._by, rr, 0, 7);
+    ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.fill();
+    ctx.lineWidth = L===hovBead ? 2.2 : 1.3;
+    ctx.strokeStyle = 'rgba(20,20,20,'+(lit||L===hovBead?0.9:0.42)+')';
+    ctx.stroke();
+    if(L===hovBead){ ctx.beginPath(); ctx.arc(L._bx,L._by, rr-2.4, 0, 7);
+      ctx.fillStyle='rgba(20,20,20,.9)'; ctx.fill(); }
+  }
+
+  // 점
+  for(const n of nodes){
+    const [x,y]=toScreen(n);
+    const r = Math.max(2.2, n.r*K);
+    if(x<-60||x>W+60||y<-60||y>H+60) continue;
+    const isSel = n===sel, isNear = near.has(n), isHov = n===hov;
+    const isMatch = query ? matches.has(n) : true;
+    let dim = (sel && !isNear) || !isMatch;
+    let c=[236,231,219];
+    const top = ['memorial','homage'].find(k=>n.k[k] > n.k.dedication);
+    if(top) c = KIND[top].c;
+    else if(n.k.dedication) c = KIND.dedication.c;
+
+    if(isSel || (query && isMatch)){
+      ctx.beginPath();
+      ctx.arc(x,y, r + (isSel? 13*pulse : 9), 0, 7);
+      ctx.fillStyle='rgba(20,20,20,'+(isSel?0.08:0.055)+')';
+      ctx.fill();
+    }
+    const im = IMG.get(n.id);
+    const notable = PORTRAIT_SET.has(n.id);
+    const showFace = im && im!=='no' && im.ready && (r>=7 || isSel || isHov);
+    const showCrest = !showFace && notable && (r>=11 || isSel || isHov);
+    if(showCrest){
+      const R = Math.max(r, isSel?26:isHov?21:r);
+      const gg = ctx.createLinearGradient(x-R,y-R,x+R,y+R);
+      gg.addColorStop(0,'rgba(255,255,255,'+(dim?.4:.95)+')');
+      gg.addColorStop(1,'rgba(232,232,228,'+(dim?.3:.9)+')');
+      ctx.beginPath(); ctx.arc(x,y,R,0,7); ctx.fillStyle=gg; ctx.fill();
+      ctx.lineWidth=isSel?1.8:1;
+      ctx.strokeStyle='rgba(20,20,20,'+(dim?.12:.5)+')'; ctx.stroke();
+      ctx.font='800 '+Math.round(R*0.92)+'px "Nanum Myeongjo",serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle='rgba(20,20,20,'+(dim?.2:.86)+')';
+      ctx.fillText(n.ko.trim().slice(-2,-1)||n.ko[0], x, y+R*0.04);
+    } else if(showFace){
+      const R = Math.max(r, isSel?26:isHov?20:r);
+      ctx.save();
+      ctx.beginPath(); ctx.arc(x,y,R,0,7); ctx.closePath(); ctx.clip();
+      const sw=im.naturalWidth, sh=im.naturalHeight, side=Math.min(sw,sh);
+      ctx.globalAlpha = dim?0.25:1;
+      ctx.filter = 'grayscale(1) contrast(1.04) brightness(1.03)';
+      ctx.drawImage(im,(sw-side)/2,(sh-side)*0.12,side,side, x-R,y-R,R*2,R*2);
+      ctx.filter = 'none';
+      ctx.globalAlpha = 1;
+      ctx.restore();
+      ctx.beginPath(); ctx.arc(x,y,R,0,7);
+      ctx.lineWidth = isSel?2.4:1.6;
+      ctx.strokeStyle = dim ? 'rgba(20,20,20,.12)'
+        : (isSel||isHov) ? 'rgba(20,20,20,.9)' : 'rgba(20,20,20,.35)';
+      ctx.stroke();
+    }else{
+      ctx.beginPath(); ctx.arc(x,y,r,0,7);
+      ctx.fillStyle = dim
+        ? 'rgba('+c[0]+','+c[1]+','+c[2]+',0.20)'
+        : 'rgba('+c[0]+','+c[1]+','+c[2]+','+(isSel?1:isNear?0.92:0.78)+')';
+      ctx.fill();
+      if(isSel||isHov){ ctx.lineWidth=1.6; ctx.strokeStyle='rgba(20,20,20,.92)'; ctx.stroke(); }
+    }
+
+    // 이름
+    const show = isSel || isHov || (query&&isMatch) || (isNear && K>0.55) || (!sel && (n.inD>=7 || K>1.45)) ;
+    if(show && !dim){
+      const face = (showFace||showCrest);
+      const R2 = face ? Math.max(r, isSel?26:isHov?21:r) : r;
+      const fs = Math.max(10.5, Math.min(16, 10 + n.inD*0.22 + (isSel?3.5:0)));
+      ctx.font = (isSel?'700 ':'500 ')+fs+'px "Pretendard Variable",Pretendard,sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      const ty = y + R2 + fs*0.92;
+      ctx.lineWidth=3.6; ctx.strokeStyle='rgba(250,250,248,.92)';
+      ctx.strokeText(n.short, x, ty);
+      ctx.fillStyle = isSel? 'rgba(20,20,20,1)' : 'rgba(20,20,20,'+(isNear||isHov?0.82:0.5)+')';
+      ctx.fillText(n.short, x, ty);
+    }
+  }
+}
+
+/* ── 시작 ── */
+addEventListener('resize', ()=>{ resize(); });
+resize();
+function openingView(){
+  measure();
+  const k = Math.max(0.9, Math.min(1.5, fitScale()*1.75));
+  cam.x = hub.x; cam.y = hub.y;
+  cam.k = RM ? k : k*0.55;
+  flyTo(hub.x, hub.y, k);
+}
+openingView();
+document.getElementById('reset').onclick=()=>{ select(null); setTimeout(openingView,20); };
+cv.style.cursor='grab';
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
